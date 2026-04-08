@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Upload – AKGEC Space</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+    <canvas id="bgCanvas" class="bg-canvas"></canvas>
+
+    <nav class="topbar">
+        <a href="/" class="logo">
+            <img src="/static/akgec-logo.png" alt="AKGEC Logo">
+            AKGEC <span>Space</span>
+        </a>
+        <a href="/" class="nav-btn"><ion-icon name="home-outline"></ion-icon> Home</a>
+    </nav>
+
+    <main class="upload-page-container">
+        <div class="glass-card upload-section">
+            <h2><ion-icon name="cloud-upload-outline"></ion-icon> Upload Material</h2>
+            <form id="uploadForm">
+                <div class="dropdown-grid">
+                    <div class="form-group">
+                        <label for="yearSelect">Year</label>
+                        <select id="yearSelect" name="year" required>
+                            <option value="" disabled selected>Select Year</option>
+                            <option value="1st_year">1st Year</option>
+                            <option value="2nd_year">2nd Year</option>
+                            <option value="3rd_year">3rd Year</option>
+                            <option value="4th_year">4th Year</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="branchGroup" style="display:none;">
+                        <label for="branchSelect">Branch</label>
+                        <select id="branchSelect" name="branch">
+                            <option value="" disabled selected>Select Branch</option>
+                            <option value="cse">CSE</option>
+                            <option value="cse_aiml">CSE (AI & ML)</option>
+                            <option value="cse_ds">CSE (Data Science)</option>
+                            <option value="cs">Computer Science</option>
+                            <option value="cse_hindi">CSE (Hindi)</option>
+                            <option value="aiml">AI & Machine Learning</option>
+                            <option value="it">Information Technology</option>
+                            <option value="csit">CS & IT</option>
+                            <option value="ece">ECE</option>
+                            <option value="me">Mechanical</option>
+                            <option value="eee">Electrical & Electronics</option>
+                            <option value="ce">Civil</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="sessionSelect">Session</label>
+                        <select id="sessionSelect" name="session" required>
+                            <option value="" disabled selected>Select Session</option>
+                            <option value="2025-26">2025-26</option>
+                            <option value="2024-25">2024-25</option>
+                            <option value="2023-24">2023-24</option>
+                            <option value="2022-23">2022-23</option>
+                            <option value="2021-22">2021-22</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="semSelect">Semester</label>
+                        <select id="semSelect" name="semester" required disabled>
+                            <option value="" disabled selected>Select Sem</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="typeSelect">Material Type</label>
+                        <select id="typeSelect" name="type" required>
+                            <option value="" disabled selected>Select Type</option>
+                            <option value="st">ST Papers</option>
+                            <option value="put">PUT Papers</option>
+                            <option value="ut">UT Papers</option>
+                            <option value="notes">Faculty Notes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="adminKey">Admin Passcode <span style="color:#f85149;">*</span></label>
+                        <input type="password" id="adminKey" name="admin_key" required placeholder="Enter Secret Code"
+                            class="styled-input">
+                    </div>
+                </div>
+
+                <div class="form-group mt-1">
+                    <div class="file-drop-area" id="fileDropArea">
+                        <ion-icon name="document-attach-outline" class="upload-icon-large"></ion-icon>
+                        <span class="file-msg">Drag & Drop or Click to choose file</span>
+                        <input type="file" id="fileInput" name="file" accept=".pdf,image/*" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" id="uploadBtn">
+                    <span>Upload Now</span>
+                    <ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+            </form>
+            <div id="uploadStatus" class="status-msg"></div>
+        </div>
+    </main>
+
+    <script src="/static/upload.js"></script>
+    <script src="/static/particles.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browse Papers – AKGEC Space</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+
+<body>
+    <canvas id="bgCanvas" class="bg-canvas"></canvas>
+
+    <nav class="topbar">
+        <a href="/" class="logo">
+            <img src="/static/akgec-logo.png" alt="AKGEC Logo">
+            AKGEC <span>Space</span>
+        </a>
+        <a href="/" class="nav-btn"><ion-icon name="arrow-back-outline"></ion-icon> Back to Home</a>
+    </nav>
+
+    <main class="browse-container">
+        <div class="browse-header">
+            <div id="breadcrumb" class="breadcrumb">
+                <a href="/" class="crumb"><ion-icon name="home"></ion-icon> Home</a>
+            </div>
+            <h1 id="pageTitle">Browse Papers</h1>
+        </div>
+
+        <div class="explorer-grid" id="explorerView">
+        </div>
+    </main>
+
+    <script>
+        // Pass the year from Flask to JS
+        const CURRENT_YEAR = "{{ year }}";
+    </script>
+    <script src="/static/browse.js"></script>
+    <script src="/static/particles.js"></script>
+</body>
+
+</html>

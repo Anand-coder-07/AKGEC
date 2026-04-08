@@ -11,4 +11,4 @@ pillow==12.1.1
 Werkzeug==3.1.7
 google-api-python-client==2.111.0
 google-auth-httplib2==0.1.1
-google-auth-oauthlib==1.1.1
+google-auth-oauthlib==1.2.0

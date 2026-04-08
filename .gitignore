@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+uploads/
+dummy_paper.pdf
+*.pyc
+.DS_Store
+.env
+client_secret.json
+oauth_tokens.json

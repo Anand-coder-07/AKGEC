@@ -105,23 +105,28 @@ def get_files():
     if not service:
         return jsonify([])
 
-    # Search for files matching the prefix
-    prefix = f"{year}_{branch}_{semester}_{type_}_{session}_"
-    query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{prefix}' and trashed = false"
+    # Search for files matching the year/branch/semester to narrow down results
+    # We use a broad 'contains' and then filter strictly in Python for prefix match
+    query_prefix = f"{year}_{branch}_{semester}_"
+    query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{query_prefix}' and trashed = false"
     
-    results = service.files().list(q=query, fields="files(id, name)").execute()
-    files = results.get('files', [])
+    results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
+    all_files = results.get('files', [])
     
-    # Extract only the original filenames (remove the prefix)
+    # Strictly define the prefix we are looking for
+    strict_prefix = f"{year}_{branch}_{semester}_{type_}_{session}_"
+    
     formatted_files = []
-    for f in files:
-        original_name = f['name'].replace(prefix, '')
-        formatted_files.append({
-            'name': original_name,
-            'id': f['id'],
-            # We'll use the drive file ID as part of the download path
-            'path': f['id'] if not original_name.endswith('.pdf') else f['id'] # Simplified
-        })
+    for f in all_files:
+        name = f['name']
+        if name.startswith(strict_prefix):
+            # Only remove the prefix from the START of the name
+            original_name = name[len(strict_prefix):]
+            formatted_files.append({
+                'name': original_name,
+                'id': f['id'],
+                'path': f['id']
+            })
     return jsonify(formatted_files)
 
 def get_file_response(file_id, action='download', passed_name=None):

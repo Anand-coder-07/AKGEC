@@ -1,5 +1,8 @@
 import os
 import json
+import threading
+import time
+import urllib.request
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response, send_file
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -33,7 +36,32 @@ def get_drive_service():
     )
     return build('drive', 'v3', credentials=creds)
 
+# --- SELF-PING TO KEEP RENDER ALIVE ---
+
+RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL')  # Render sets this automatically
+
+def keep_alive():
+    """Background thread that pings the app every 10 minutes to prevent Render sleep."""
+    while True:
+        time.sleep(600)  # 10 minutes
+        if RENDER_URL:
+            try:
+                urllib.request.urlopen(f"{RENDER_URL}/health")
+                print(f"[Keep-Alive] Pinged {RENDER_URL}/health successfully")
+            except Exception as e:
+                print(f"[Keep-Alive] Ping failed: {e}")
+
+# Start keep-alive thread only in production (on Render)
+if RENDER_URL:
+    keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
+    keep_alive_thread.start()
+    print(f"[Keep-Alive] Started background ping for {RENDER_URL}")
+
 # --- ROUTES ---
+
+@app.route('/health')
+def health():
+    return jsonify({'status': 'ok'}), 200
 
 @app.route('/')
 def index():

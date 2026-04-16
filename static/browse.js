@@ -177,7 +177,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams({ year, semester: sem, type, session });
             if (branch) params.append('branch', branch);
             const res = await fetch(`/api/files?${params}`);
-            const files = await res.json();
+            const data = await res.json();
+
+            // Check if the API returned an error
+            if (!res.ok || data.error) {
+                const errMsg = data.error || `Server error (${res.status})`;
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${errMsg}</p></div>`;
+                return;
+            }
+
+            const files = data;
 
             explorerView.innerHTML = '';
             if (!files || files.length === 0) {

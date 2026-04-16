@@ -131,31 +131,38 @@ def get_files():
 
     service = get_drive_service()
     if not service:
-        return jsonify([])
+        return jsonify({'error': 'Google Drive service not configured. Check environment variables.'}), 500
 
-    # Search for files matching the year/branch/semester to narrow down results
-    # We use a broad 'contains' and then filter strictly in Python for prefix match
-    query_prefix = f"{year}_{branch}_{semester}_"
-    query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{query_prefix}' and trashed = false"
-    
-    results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
-    all_files = results.get('files', [])
-    
-    # Strictly define the prefix we are looking for
-    strict_prefix = f"{year}_{branch}_{semester}_{type_}_{session}_"
-    
-    formatted_files = []
-    for f in all_files:
-        name = f['name']
-        if name.startswith(strict_prefix):
-            # Only remove the prefix from the START of the name
-            original_name = name[len(strict_prefix):]
-            formatted_files.append({
-                'name': original_name,
-                'id': f['id'],
-                'path': f['id']
-            })
-    return jsonify(formatted_files)
+    try:
+        # Search for files matching the year/branch/semester to narrow down results
+        # We use a broad 'contains' and then filter strictly in Python for prefix match
+        query_prefix = f"{year}_{branch}_{semester}_"
+        query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{query_prefix}' and trashed = false"
+        
+        results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
+        all_files = results.get('files', [])
+        
+        # Strictly define the prefix we are looking for
+        strict_prefix = f"{year}_{branch}_{semester}_{type_}_{session}_"
+        
+        formatted_files = []
+        for f in all_files:
+            name = f['name']
+            if name.startswith(strict_prefix):
+                # Only remove the prefix from the START of the name
+                original_name = name[len(strict_prefix):]
+                formatted_files.append({
+                    'name': original_name,
+                    'id': f['id'],
+                    'path': f['id']
+                })
+        return jsonify(formatted_files)
+    except Exception as e:
+        print(f"[ERROR] /api/files failed: {e}")
+        error_msg = str(e)
+        if 'invalid_grant' in error_msg or 'Token has been expired' in error_msg or 'revoked' in error_msg:
+            return jsonify({'error': 'Google Drive token expired. Re-run setup_oauth.py and update GOOGLE_REFRESH_TOKEN on Render.'}), 500
+        return jsonify({'error': f'Failed to fetch files from Google Drive: {error_msg}'}), 500
 
 def get_file_response(file_id, action='download', passed_name=None):
     service = get_drive_service()

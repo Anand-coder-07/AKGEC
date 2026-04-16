@@ -719,7 +719,7 @@ select:disabled {
 
 .file-actions {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     gap: 0.5rem;
     width: 100%;
 }

@@ -95,8 +95,6 @@ def upload_file():
         return jsonify({'error': 'No selected file'}), 400
     if not all([year, semester, type_, session]):
         return jsonify({'error': 'Missing category information'}), 400
-    if year != '1st_year' and not branch:
-        return jsonify({'error': 'Branch is required for this year'}), 400
 
     service = get_drive_service()
     if not service:

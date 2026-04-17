@@ -1,6 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     const year = typeof CURRENT_YEAR !== 'undefined' ? CURRENT_YEAR : '';
-    const is1stYear = year === '1st_year';
 
     const semMapping = {
         '1st_year': [{ val: '1st_sem', label: '1st Semester' }, { val: '2nd_sem', label: '2nd Semester' }],
@@ -56,9 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const yearLabels = { '1st_year': '1st Year', '2nd_year': '2nd Year', '3rd_year': '3rd Year', '4th_year': '4th Year' };
 
-    // Navigation order:
-    // 1st year: [sem, type, session]  → then files
-    // Others:   [branch, sem, type, session] → then files
+    // Navigation order: [sem, type, session] → then files
     let path = [];
     const explorerView = document.getElementById('explorerView');
     const breadcrumb = document.getElementById('breadcrumb');
@@ -73,16 +70,16 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `<a href="/" class="crumb"><ion-icon name="home"></ion-icon> Home</a>`;
         html += `<span class="crumb" data-level="0">${yearLabels[year] || year}</span>`;
 
-        const semIdx = is1stYear ? 0 : 1;
-        const typeIdx = is1stYear ? 1 : 2;
-        const sessionIdx = is1stYear ? 2 : 3;
+        // Updated indices (no branch)
+        const semIdx = 0;
+        const typeIdx = 1;
+        const sessionIdx = 2;
 
         for (let i = 0; i < path.length; i++) {
             let label = path[i];
-            if (!is1stYear && i === 0) label = getLabel(path[i], branches);
-            else if (i === semIdx) label = getLabel(path[i], semMapping[year]);
+            if (i === semIdx) label = getLabel(path[i], semMapping[year]);
             else if (i === typeIdx) label = getLabel(path[i], typeMapping);
-            else if (i === sessionIdx) label = path[i]; // session is already readable
+            else if (i === sessionIdx) label = path[i]; 
             html += `<span class="crumb" data-level="${i + 1}">${label}</span>`;
         }
 
@@ -108,33 +105,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Levels:
-    // 1st year: 0=sem, 1=type, 2=session, 3=files
-    // Others:   0=branch, 1=sem, 2=type, 3=session, 4=files
+    // Levels: 0=sem, 1=type, 2=session, 3=files
     function render() {
         renderBreadcrumbs();
         explorerView.innerHTML = '';
         const depth = path.length;
 
-        const branchLevel = is1stYear ? -1 : 0;
-        const semLevel = is1stYear ? 0 : 1;
-        const typeLevel = is1stYear ? 1 : 2;
-        const sessionLevel = is1stYear ? 2 : 3;
-        const fileLevel = is1stYear ? 3 : 4;
+        const semLevel = 0;
+        const typeLevel = 1;
+        const sessionLevel = 2;
+        const fileLevel = 3;
 
-        if (!is1stYear && depth === branchLevel) {
-            // This won't trigger since branchLevel=0 and depth starts at 0
-        }
-
-        if (!is1stYear && depth === 0) {
-            pageTitle.textContent = `${yearLabels[year]} – Select Branch`;
-            branches.forEach((b, i) => {
-                const bi = branchIcons[b.val] || { icon: 'folder', color: '#d4a017' };
-                explorerView.innerHTML += folderHTML(b.val, b.label, bi.icon, bi.color, i);
-            });
-            attachFolderListeners();
-        }
-        else if (depth === semLevel) {
+        if (depth === semLevel) {
             pageTitle.textContent = 'Select Semester';
             semMapping[year].forEach((sem, i) => {
                 explorerView.innerHTML += folderHTML(sem.val, sem.label, 'book-outline', '#d4a017', i);
@@ -163,19 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchFiles() {
         explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading files...</div>`;
-        let branch = '', sem, type, session, downloadBase;
+        let sem, type, session;
 
-        if (is1stYear) {
-            [sem, type, session] = path;
-            downloadBase = `${year}/${sem}/${type}/${session}`;
-        } else {
-            [branch, sem, type, session] = path;
-            downloadBase = `${year}/${branch}/${sem}/${type}/${session}`;
-        }
+        [sem, type, session] = path;
 
         try {
             const params = new URLSearchParams({ year, semester: sem, type, session });
-            if (branch) params.append('branch', branch);
+            // Note: branch parameter is omitted or empty
             const res = await fetch(`/api/files?${params}`);
             const data = await res.json();
 

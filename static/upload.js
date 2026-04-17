@@ -24,11 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
         sems.forEach(s => { semSelect.innerHTML += `<option value="${s.val}">${s.label}</option>`; });
         semSelect.disabled = false;
 
-        if (year === '1st_year') {
-            branchGroup.style.display = 'none'; branchSelect.removeAttribute('required'); branchSelect.value = '';
-        } else {
-            branchGroup.style.display = 'flex'; branchSelect.setAttribute('required', 'true');
-        }
+        branchGroup.style.display = 'none';
+        branchSelect.removeAttribute('required');
+        branchSelect.value = '';
     });
 
     fileInput.addEventListener('change', (e) => {

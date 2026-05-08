@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --bg-color: #0c0a0f;
     --text-primary: #f5f0e8;
     --text-secondary: #a89e8c;
@@ -888,4 +888,55 @@ select:disabled {
     color: #e74c3c;
     vertical-align: middle;
     font-size: 1.1rem;
+}
+
+/* ---- Floating Instagram Button ---- */
+.insta-float {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2.2rem;
+    box-shadow: 0 10px 25px rgba(225, 48, 108, 0.4);
+    z-index: 1000;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    text-decoration: none;
+    animation: bounceIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.insta-float:hover {
+    transform: scale(1.15) translateY(-5px) rotate(8deg);
+    box-shadow: 0 15px 35px rgba(225, 48, 108, 0.6);
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .insta-float {
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        font-size: 1.8rem;
+    }
 }

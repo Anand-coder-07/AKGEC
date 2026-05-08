@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AKGEC Space</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Title - Google pe yahi dikhta hai -->
+    <title>AKGEC Space - Previous Year Papers & Notes</title>
+
+    <!-- Description - Google search result mein description -->
+    <meta name="description"
+        content="Access previous year question papers, ST, PUT, UT and faculty notes for AKGEC students - all in one place.">
+
+    <!-- Keywords (less important now but still good) -->
+    <meta name="keywords" content="AKGEC, previous year papers, question papers, AKGEC notes, AKGEC PYQ">
+
+    <!-- Mobile friendly -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Open Graph - WhatsApp/Facebook pe share karo toh preview aata hai -->
+    <meta property="og:title" content="AKGEC Space - Previous Year Papers">
+    <meta property="og:description" content="All AKGEC papers and notes in one place.">
+    <meta property="og:url" content="https://akgec-space.onrender.com">
+    <meta property="og:image" content="https://akgec-space.onrender.com/static/akgec-logo.png">
+    <meta name="google-site-verification" content="google68fe8c8a0d30c430">
+
+</head>
+
+<body>
+    <canvas id="bgCanvas" class="bg-canvas"></canvas>
+    <img src="/static/akgec-logo-transparent.png" class="bg-logo" alt="Background Logo">
+
+    <nav class="topbar">
+        <a href="/" class="logo">
+            <img src="/static/akgec-logo.png" alt="AKGEC Logo">
+            AKGEC <span>Space</span>
+        </a>
+        <a href="/admin" class="nav-btn"><ion-icon name="lock-closed-outline"></ion-icon> Admin Upload</a>
+    </nav>
+
+    <main class="landing-container">
+        <header class="landing-hero">
+            <img src="/static/akgec-logo.png" alt="AKGEC">
+            <h1>AKGEC Space</h1>
+            <p>Access previous year question papers – ST, PUT, UT & Faculty Notes – all in one place.</p>
+        </header>
+
+        <div class="year-cards-grid">
+            <a href="/browse/1st_year" class="year-card" style="--card-accent: #d4a017;">
+                <div class="year-card-icon"><ion-icon name="school-outline"></ion-icon></div>
+                <h2>1st Year</h2>
+                <p>Common syllabus for all branches</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
+            </a>
+            <a href="/browse/2nd_year" class="year-card" style="--card-accent: #c0392b;">
+                <div class="year-card-icon"><ion-icon name="rocket-outline"></ion-icon></div>
+                <h2>2nd Year</h2>
+                <p>Papers & notes for all semesters</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
+            </a>
+            <a href="/browse/3rd_year" class="year-card" style="--card-accent: #e8c547;">
+                <div class="year-card-icon"><ion-icon name="flask-outline"></ion-icon></div>
+                <h2>3rd Year</h2>
+                <p>Papers & notes for all semesters</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
+            </a>
+            <a href="/browse/4th_year" class="year-card" style="--card-accent: #8b1a1a;">
+                <div class="year-card-icon"><ion-icon name="trophy-outline"></ion-icon></div>
+                <h2>4th Year</h2>
+                <p>Papers & notes for all semesters</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
+            </a>
+        </div>
+
+    </main>
+
+    <a href="https://www.instagram.com/the.enginners/" target="_blank" class="insta-float"
+        title="Connect with me on Instagram">
+        <ion-icon name="logo-instagram"></ion-icon>
+    </a>
+
+    <script src="/static/particles.js"></script>
+    <footer class="main-footer">
+        <p>
+            &copy; 2025-26 AKGEC Space. All Rights Reserved.
+            <span class="disclaimer">"This is an unofficial student resource site. Not affiliated with or endorsed by
+                AKGEC."</span>
+        </p>
+        <p class="credit">
+            Made with <ion-icon name="heart" class="heart-icon"></ion-icon> by <strong>Anand Singh</strong>
+        </p>
+    </footer>
+</body>
+
+</html>

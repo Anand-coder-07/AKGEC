@@ -46,16 +46,23 @@ document.addEventListener('DOMContentLoaded', () => {
         'ce': { icon: 'business-outline', color: '#e8c547' }
     };
 
+    // Paper types only (no notes — notes is now a top-level section)
     const typeMapping = [
         { val: 'st', label: 'ST Papers', icon: 'document-text', color: '#d4a017' },
         { val: 'put', label: 'PUT Papers', icon: 'school', color: '#c0392b' },
-        { val: 'ut', label: 'UT Papers', icon: 'create', color: '#e8c547' },
+        { val: 'ut', label: 'UT Papers', icon: 'create', color: '#e8c547' }
+    ];
+
+    // Full type list (used for breadcrumb labels)
+    const allTypes = [
+        ...typeMapping,
         { val: 'notes', label: 'Faculty Notes', icon: 'journal', color: '#8b1a1a' }
     ];
 
     const yearLabels = { '1st_year': '1st Year', '2nd_year': '2nd Year', '3rd_year': '3rd Year', '4th_year': '4th Year' };
 
-    // Navigation order: [sem, type, session] → then files
+    // Track whether we are in Faculty Notes mode
+    let isFacultyNotesMode = false;
     let path = [];
     const explorerView = document.getElementById('explorerView');
     const breadcrumb = document.getElementById('breadcrumb');
@@ -70,24 +77,33 @@ document.addEventListener('DOMContentLoaded', () => {
         let html = `<a href="/" class="crumb"><ion-icon name="home"></ion-icon> Home</a>`;
         html += `<span class="crumb" data-level="0">${yearLabels[year] || year}</span>`;
 
-        // Updated indices (no branch)
-        const semIdx = 0;
-        const typeIdx = 1;
-        const sessionIdx = 2;
-
-        for (let i = 0; i < path.length; i++) {
-            let label = path[i];
-            if (i === semIdx) label = getLabel(path[i], semMapping[year]);
-            else if (i === typeIdx) label = getLabel(path[i], typeMapping);
-            else if (i === sessionIdx) label = path[i]; 
-            html += `<span class="crumb" data-level="${i + 1}">${label}</span>`;
+        if (isFacultyNotesMode) {
+            // Faculty Notes breadcrumb: Year > Faculty Notes > (files)
+            html += `<span class="crumb" data-level="1">Faculty Notes</span>`;
+        } else {
+            for (let i = 0; i < path.length; i++) {
+                let label = path[i];
+                if (i === 0) label = getLabel(path[i], semMapping[year]);
+                else if (i === 1) label = getLabel(path[i], allTypes);
+                else if (i === 2) label = path[i];
+                html += `<span class="crumb" data-level="${i + 1}">${label}</span>`;
+            }
         }
 
         breadcrumb.innerHTML = html;
         document.querySelectorAll('.crumb[data-level]').forEach(crumb => {
             crumb.addEventListener('click', () => {
                 const level = parseInt(crumb.getAttribute('data-level'));
-                if (level < path.length) { path = path.slice(0, level); render(); }
+                if (isFacultyNotesMode) {
+                    if (level === 0) {
+                        // Go back to main screen
+                        isFacultyNotesMode = false;
+                        path = [];
+                        render();
+                    }
+                } else {
+                    if (level < path.length) { path = path.slice(0, level); render(); }
+                }
             });
         });
         const crumbs = document.querySelectorAll('.crumb');
@@ -105,41 +121,121 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Levels: 0=sem, 1=type, 2=session, 3=files
     function render() {
         renderBreadcrumbs();
         explorerView.innerHTML = '';
+
+        // --- Faculty Notes Mode: directly show files ---
+        if (isFacultyNotesMode) {
+            pageTitle.textContent = 'Faculty Notes';
+            fetchFacultyNotes();
+            return;
+        }
+
+        // --- Normal (Papers) Mode ---
         const depth = path.length;
 
-        const semLevel = 0;
-        const typeLevel = 1;
-        const sessionLevel = 2;
-        const fileLevel = 3;
-
-        if (depth === semLevel) {
-            pageTitle.textContent = 'Select Semester';
-            semMapping[year].forEach((sem, i) => {
+        // Level 0: Show semesters + Faculty Notes
+        if (depth === 0) {
+            pageTitle.textContent = 'Select Category';
+            const sems = semMapping[year] || [];
+            sems.forEach((sem, i) => {
                 explorerView.innerHTML += folderHTML(sem.val, sem.label, 'book-outline', '#d4a017', i);
             });
-            attachFolderListeners();
+
+            // Add Faculty Notes as a special card at the end
+            const notesIdx = sems.length;
+            const notesCard = `<div class="folder-item faculty-notes-card" data-id="__faculty_notes__" style="--stagger:${notesIdx}">
+                <ion-icon name="journal-outline" class="item-icon" style="color:#8b1a1a;"></ion-icon>
+                <span class="item-name">Faculty Notes</span>
+            </div>`;
+            explorerView.innerHTML += notesCard;
+
+            // Attach listeners — special handling for Faculty Notes
+            document.querySelectorAll('.folder-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const id = item.getAttribute('data-id');
+                    if (id === '__faculty_notes__') {
+                        isFacultyNotesMode = true;
+                        render();
+                    } else {
+                        path.push(id);
+                        render();
+                    }
+                });
+            });
         }
-        else if (depth === typeLevel) {
-            pageTitle.textContent = 'Select Material Type';
+        // Level 1: Select paper type (ST / PUT / UT only, no notes)
+        else if (depth === 1) {
+            pageTitle.textContent = 'Select Paper Type';
             typeMapping.forEach((t, i) => {
                 explorerView.innerHTML += folderHTML(t.val, t.label, t.icon, t.color, i);
             });
             attachFolderListeners();
         }
-        else if (depth === sessionLevel) {
+        // Level 2: Select session
+        else if (depth === 2) {
             pageTitle.textContent = 'Select Academic Session';
             sessions.forEach((s, i) => {
                 explorerView.innerHTML += folderHTML(s.val, s.label, 'calendar-outline', '#d4a017', i);
             });
             attachFolderListeners();
         }
-        else if (depth === fileLevel) {
-            pageTitle.textContent = 'Papers & Notes';
+        // Level 3: Show files
+        else if (depth === 3) {
+            pageTitle.textContent = 'Papers';
             fetchFiles();
+        }
+    }
+
+    // Fetch all faculty notes for this year (no semester/session filter)
+    async function fetchFacultyNotes() {
+        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading faculty notes...</div>`;
+
+        try {
+            const params = new URLSearchParams({ year });
+            const res = await fetch(`/api/faculty-notes?${params}`);
+            const data = await res.json();
+
+            if (!res.ok || data.error) {
+                const errMsg = data.error || `Server error (${res.status})`;
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${errMsg}</p></div>`;
+                return;
+            }
+
+            const files = data;
+            explorerView.innerHTML = '';
+            if (!files || files.length === 0) {
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="document-text-outline"></ion-icon><p>No faculty notes uploaded yet.</p></div>`;
+                return;
+            }
+
+            files.forEach((fileObj, idx) => {
+                const fileName = fileObj.name;
+                const fileId = fileObj.id;
+                const ext = fileName.split('.').pop().toLowerCase();
+                const isPDF = ext === 'pdf';
+                const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext);
+                let iconName = isPDF ? 'document-text' : (isImage ? 'image' : 'document');
+                let iconColor = isPDF ? '#f85149' : (isImage ? '#58a6ff' : '#d4a017');
+
+                explorerView.innerHTML += `
+                    <div class="file-card" style="--stagger:${idx}">
+                        <ion-icon name="${iconName}" class="item-icon" style="color:${iconColor};"></ion-icon>
+                        <span class="item-name" title="${fileName}">${fileName}</span>
+                        <div class="file-actions">
+                            <a href="/view/${fileId}/${encodeURIComponent(fileName)}" target="_blank" class="file-btn btn-view">
+                                <ion-icon name="eye-outline"></ion-icon> View
+                            </a>
+                            <a href="/download/${fileId}/${encodeURIComponent(fileName)}" class="file-btn btn-download">
+                                <ion-icon name="download-outline"></ion-icon> Download
+                            </a>
+                        </div>
+                    </div>
+                `;
+            });
+        } catch (e) {
+            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Error loading faculty notes.</p></div>`;
         }
     }
 

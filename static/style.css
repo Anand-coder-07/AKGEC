@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --bg-color: #0c0a0f;
     --text-primary: #f5f0e8;
     --text-secondary: #a89e8c;
@@ -9,7 +9,12 @@
     --card-border: rgba(212, 175, 55, 0.1);
     --glass-blur: blur(24px);
     --glass-saturate: saturate(180%);
+    --nav-bg: rgba(12, 10, 15, 0.6);
+    --footer-bg: #1a1a2e;
+    --input-bg: rgba(12, 10, 15, 0.5);
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 
 * {
     box-sizing: border-box;
@@ -20,13 +25,14 @@
 
 body {
     background-color: var(--bg-color);
-    background-image: radial-gradient(ellipse at 20% 50%, rgba(139, 26, 26, 0.06) 0%, transparent 50%),
-        radial-gradient(ellipse at 80% 20%, rgba(212, 175, 55, 0.04) 0%, transparent 50%),
-        radial-gradient(ellipse at 50% 80%, rgba(139, 26, 26, 0.03) 0%, transparent 50%);
+    background-image: radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--accent-color) 6%, transparent) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, color-mix(in srgb, var(--accent-secondary) 4%, transparent) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, color-mix(in srgb, var(--accent-color) 3%, transparent) 0%, transparent 50%);
     color: var(--text-primary);
     min-height: 100vh;
     position: relative;
     overflow-x: hidden;
+
 }
 
 .bg-canvas {
@@ -70,7 +76,7 @@ body {
     align-items: center;
     justify-content: space-between;
     padding: 0.8rem 2.5rem;
-    background: rgba(12, 10, 15, 0.6);
+    background: var(--nav-bg);
     backdrop-filter: var(--glass-blur) var(--glass-saturate);
     -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
     border-bottom: 1px solid rgba(212, 175, 55, 0.08);
@@ -113,7 +119,7 @@ body {
     text-decoration: none;
     font-weight: 600;
     font-size: 0.95rem;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: var(--transition);
 }
 
 .nav-btn:hover {
@@ -122,6 +128,7 @@ body {
     transform: translateY(-2px);
     box-shadow: 0 8px 20px rgba(212, 175, 55, 0.1);
 }
+
 
 /* ---- Landing Page ---- */
 .landing-container {
@@ -143,7 +150,8 @@ body {
     animation: floatLogo 4s ease-in-out infinite;
     background-color: #fff;
     padding: 12px;
-    border-radius: 20px;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
 }
 
 .landing-hero h1 {
@@ -378,14 +386,14 @@ input.styled-input {
     width: 100%;
     padding: 1rem 1.2rem;
     border-radius: 14px;
-    background: rgba(12, 10, 15, 0.5);
+    background: var(--input-bg);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(212, 175, 55, 0.1);
+    border: 1px solid var(--card-border);
     color: var(--text-primary);
     font-size: 1rem;
     font-weight: 500;
     outline: none;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: var(--transition);
 }
 
 select:focus,
@@ -410,13 +418,13 @@ select:disabled {
     gap: 1rem;
     width: 100%;
     padding: 3rem 2rem;
-    border: 2px dashed rgba(212, 175, 55, 0.15);
+    border: 2px dashed var(--card-border);
     border-radius: 20px;
-    background: rgba(12, 10, 15, 0.3);
+    background: var(--card-bg);
     backdrop-filter: blur(8px);
     cursor: pointer;
     text-align: center;
-    transition: all 0.4s;
+    transition: var(--transition);
 }
 
 .upload-icon-large {
@@ -851,4 +859,33 @@ select:disabled {
         grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
         gap: 1rem;
     }
+}
+
+/* ---- Main Footer ---- */
+.main-footer {
+    background-color: var(--footer-bg);
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 3rem 1.5rem;
+    font-size: 0.9rem;
+    border-top: 1px solid var(--card-border);
+    margin-top: 5rem;
+}
+
+.main-footer .disclaimer {
+    display: block;
+    margin-top: 0.5rem;
+    font-style: italic;
+    opacity: 0.8;
+}
+
+.main-footer .credit {
+    margin-top: 1.2rem;
+    font-size: 0.95rem;
+}
+
+.heart-icon {
+    color: #e74c3c;
+    vertical-align: middle;
+    font-size: 1.1rem;
 }

@@ -5,6 +5,7 @@ import time
 import urllib.request
 from flask import Flask, request, jsonify, render_template, send_from_directory, Response, send_file
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
 from dotenv import load_dotenv
@@ -16,10 +17,17 @@ app = Flask(__name__)
 
 # --- GOOGLE DRIVE SETUP ---
 
-# We use OAuth2 refresh token since service accounts have 0MB storage quota
 DRIVE_FOLDER_ID = os.environ.get('GOOGLE_DRIVE_FOLDER_ID')
+ADMIN_KEY = os.environ.get('ADMIN_KEY', 'akgec_admin')
+
+# Cached credentials (avoids rebuilding on every request)
+_cached_creds = None
+_cached_service = None
 
 def get_drive_service():
+    """Get an authenticated Google Drive service with caching and auto-refresh."""
+    global _cached_creds, _cached_service
+
     refresh_token = os.environ.get('GOOGLE_REFRESH_TOKEN')
     client_id = os.environ.get('GOOGLE_CLIENT_ID')
     client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
@@ -27,6 +35,30 @@ def get_drive_service():
     if not refresh_token:
         return None
 
+    # If we have cached creds, check if they're still valid
+    if _cached_creds and _cached_creds.refresh_token == refresh_token:
+        if _cached_creds.valid:
+            return _cached_service
+        # Access token expired — try to refresh it
+        if _cached_creds.expired:
+            try:
+                _cached_creds.refresh(Request())
+                print("[Token] Access token refreshed successfully")
+                return _cached_service
+            except Exception as e:
+                error_msg = str(e)
+                print(f"[Token] Refresh failed: {error_msg}")
+                # If refresh token itself is invalid, clear cache and fall through
+                _cached_creds = None
+                _cached_service = None
+                if 'invalid_grant' in error_msg or 'Token has been expired' in error_msg or 'revoked' in error_msg:
+                    raise Exception(
+                        'GOOGLE_TOKEN_EXPIRED: Refresh token expired. '
+                        'Re-run setup_oauth.py and update GOOGLE_REFRESH_TOKEN on Render.'
+                    )
+                raise
+
+    # Build fresh credentials
     creds = Credentials(
         token=None,
         refresh_token=refresh_token,
@@ -34,7 +66,26 @@ def get_drive_service():
         client_id=client_id,
         client_secret=client_secret
     )
-    return build('drive', 'v3', credentials=creds)
+
+    # Eagerly refresh to catch token issues immediately
+    try:
+        creds.refresh(Request())
+        print("[Token] New credentials obtained successfully")
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[Token] Authentication failed: {error_msg}")
+        if 'invalid_grant' in error_msg or 'Token has been expired' in error_msg or 'revoked' in error_msg:
+            raise Exception(
+                'GOOGLE_TOKEN_EXPIRED: Your refresh token has expired. '
+                'Go to /admin/token to update it, or re-run setup_oauth.py locally. '
+                'To prevent this permanently, publish your OAuth app in Google Cloud Console.'
+            )
+        raise
+
+    # Cache for future requests
+    _cached_creds = creds
+    _cached_service = build('drive', 'v3', credentials=creds)
+    return _cached_service
 
 # --- SELF-PING TO KEEP RENDER ALIVE ---
 
@@ -75,10 +126,11 @@ def admin():
 def browse(year):
     return render_template('browse.html', year=year)
 
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     admin_key = request.form.get('admin_key')
-    if admin_key != 'akgec_admin':
+    if admin_key != ADMIN_KEY:
         return jsonify({'error': 'Unauthorized! Invalid Admin Passcode.'}), 401
 
     if 'file' not in request.files:
@@ -90,6 +142,10 @@ def upload_file():
     semester = request.form.get('semester')
     type_ = request.form.get('type')
     session = request.form.get('session')
+
+    if type_ == 'notes':
+        semester = semester or 'none'
+        session = session or 'none'
 
     if file.filename == '':
         return jsonify({'error': 'No selected file'}), 400
@@ -158,9 +214,71 @@ def get_files():
     except Exception as e:
         print(f"[ERROR] /api/files failed: {e}")
         error_msg = str(e)
-        if 'invalid_grant' in error_msg or 'Token has been expired' in error_msg or 'revoked' in error_msg:
+        if 'GOOGLE_TOKEN_EXPIRED' in error_msg or 'invalid_grant' in error_msg or 'Token has been expired' in error_msg or 'revoked' in error_msg:
             return jsonify({'error': 'Google Drive token expired. Re-run setup_oauth.py and update GOOGLE_REFRESH_TOKEN on Render.'}), 500
         return jsonify({'error': f'Failed to fetch files from Google Drive: {error_msg}'}), 500
+
+@app.route('/api/faculty-notes')
+def get_faculty_notes():
+    """Fetch all faculty notes for a given year (no semester/session filter)."""
+    year = request.args.get('year')
+
+    if not year:
+        return jsonify({'error': 'Missing year parameter'}), 400
+
+    service = get_drive_service()
+    if not service:
+        return jsonify({'error': 'Google Drive service not configured. Check environment variables.'}), 500
+
+    try:
+        # Search for all files in the Drive folder that start with the year and contain '_notes_'
+        query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{year}_' and name contains '_notes_' and trashed = false"
+
+        results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
+        all_files = results.get('files', [])
+
+        formatted_files = []
+        for f in all_files:
+            name = f['name']
+            # File naming: {year}_{branch}_{semester}_notes_{session}_{filename}
+            # We need to verify the type part is exactly 'notes'
+            parts = name.split('_')
+            # Find 'notes' in the parts — it should be the type field
+            # Format: year_branch_semester_type_session_filename
+            # e.g.: 1st_year__1st_sem_notes_2024-25_file.pdf
+            # year = "1st_year", branch = "", semester = "1st_sem", type = "notes"
+            if not name.startswith(f"{year}_"):
+                continue
+
+            # Remove the year prefix to get: {branch}_{semester}_notes_{session}_{filename}
+            remainder = name[len(f"{year}_"):]
+            # Find '_notes_' in the remainder to confirm type
+            notes_idx = remainder.find('_notes_')
+            if notes_idx == -1:
+                continue
+
+            # Extract original filename: everything after {branch}_{semester}_notes_{session}_
+            after_notes = remainder[notes_idx + len('_notes_'):]
+            # after_notes = "{session}_{filename}"
+            # Session is like "2024-25", so find the first underscore after that
+            session_sep = after_notes.find('_')
+            if session_sep == -1:
+                continue
+            original_name = after_notes[session_sep + 1:]
+
+            formatted_files.append({
+                'name': original_name,
+                'id': f['id'],
+                'path': f['id']
+            })
+
+        return jsonify(formatted_files)
+    except Exception as e:
+        print(f"[ERROR] /api/faculty-notes failed: {e}")
+        error_msg = str(e)
+        if 'GOOGLE_TOKEN_EXPIRED' in error_msg or 'invalid_grant' in error_msg or 'Token has been expired' in error_msg or 'revoked' in error_msg:
+            return jsonify({'error': 'Google Drive token expired. Re-run setup_oauth.py and update GOOGLE_REFRESH_TOKEN on Render.'}), 500
+        return jsonify({'error': f'Failed to fetch faculty notes: {error_msg}'}), 500
 
 def get_file_response(file_id, action='download', passed_name=None):
     service = get_drive_service()

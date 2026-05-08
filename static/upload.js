@@ -10,6 +10,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const branchGroup = document.getElementById('branchGroup');
     const branchSelect = document.getElementById('branchSelect');
     const semSelect = document.getElementById('semSelect');
+    const typeSelect = document.getElementById('typeSelect');
+    const sessionGroup = document.getElementById('sessionGroup');
+    const semGroup = document.getElementById('semGroup');
+    const sessionSelect = document.getElementById('sessionSelect');
     const fileInput = document.getElementById('fileInput');
     const fileMsg = document.querySelector('.file-msg');
     const dropArea = document.getElementById('fileDropArea');
@@ -27,6 +31,22 @@ document.addEventListener('DOMContentLoaded', () => {
         branchGroup.style.display = 'none';
         branchSelect.removeAttribute('required');
         branchSelect.value = '';
+    });
+
+    typeSelect.addEventListener('change', (e) => {
+        if (e.target.value === 'notes') {
+            sessionGroup.style.display = 'none';
+            semGroup.style.display = 'none';
+            sessionSelect.removeAttribute('required');
+            semSelect.removeAttribute('required');
+        } else {
+            sessionGroup.style.display = 'flex';
+            semGroup.style.display = 'flex';
+            sessionSelect.setAttribute('required', 'required');
+            if (yearSelect.value) {
+                semSelect.setAttribute('required', 'required');
+            }
+        }
     });
 
     fileInput.addEventListener('change', (e) => {
@@ -50,6 +70,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusMsg.textContent = 'Upload Successful! 🚀'; statusMsg.className = 'status-msg success';
                 uploadForm.reset(); semSelect.innerHTML = '<option value="" disabled selected>Select Sem</option>';
                 semSelect.disabled = true; branchGroup.style.display = 'none'; branchSelect.removeAttribute('required');
+                sessionGroup.style.display = 'flex'; semGroup.style.display = 'flex';
+                sessionSelect.setAttribute('required', 'required');
                 fileMsg.textContent = 'Drag & Drop or Click to choose file'; dropArea.style.borderColor = 'rgba(255,255,255,0.15)';
             } else { statusMsg.textContent = result.error || 'Upload failed.'; statusMsg.className = 'status-msg error'; }
         } catch (err) { statusMsg.textContent = 'Connection error.'; statusMsg.className = 'status-msg error'; }

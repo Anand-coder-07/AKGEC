@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Notes Manager – AKGEC Space</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <style>
+        .fn-container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+        .fn-header { margin-bottom: 2rem; }
+        .fn-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #d4a017, #c0392b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.25rem;
+        }
+        .fn-header p { color: var(--text-muted); font-size: 0.95rem; }
+
+        /* Auth gate */
+        #authGate {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 1.2rem;
+        }
+        #authGate .glass-card {
+            width: 100%;
+            max-width: 420px;
+            padding: 2.5rem;
+            text-align: center;
+        }
+        #authGate h2 { font-size: 1.4rem; margin-bottom: 0.5rem; }
+        #authGate p { color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        #authGate .styled-input { width: 100%; margin-bottom: 1rem; }
+
+        /* Main panel */
+        #mainPanel { display: none; }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        .toolbar .styled-input { flex: 1; min-width: 180px; }
+
+        .btn-sm {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            padding: 0.55rem 1.1rem;
+            border-radius: 10px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .btn-create { background: linear-gradient(135deg, #d4a017, #e8c547); color: #000; }
+        .btn-create:hover { opacity: 0.85; transform: translateY(-1px); }
+        .btn-danger {
+            background: rgba(248,81,73,0.15);
+            color: #f85149;
+            border: 1px solid rgba(248,81,73,0.3);
+        }
+        .btn-danger:hover { background: rgba(248,81,73,0.25); }
+        .btn-upload-file {
+            background: rgba(88,166,255,0.15);
+            color: #58a6ff;
+            border: 1px solid rgba(88,166,255,0.3);
+        }
+        .btn-upload-file:hover { background: rgba(88,166,255,0.25); }
+
+        /* Sections grid */
+        .sections-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.2rem;
+            margin-bottom: 2.5rem;
+        }
+        .section-card {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 1.4rem 1.2rem 1rem;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            animation: fadeUp 0.4s ease both;
+            animation-delay: calc(var(--stagger,0) * 0.07s);
+        }
+        .section-card:hover {
+            border-color: rgba(212,160,23,0.5);
+            background: rgba(212,160,23,0.07);
+            transform: translateY(-3px);
+        }
+        .section-card.active {
+            border-color: #d4a017;
+            background: rgba(212,160,23,0.1);
+        }
+        .section-card .s-icon {
+            font-size: 2rem;
+            color: #d4a017;
+            margin-bottom: 0.6rem;
+            display: block;
+        }
+        .section-card .s-name {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+        .section-card .s-count { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.25rem; }
+        .section-card .s-del {
+            position: absolute;
+            top: 0.6rem;
+            right: 0.6rem;
+            background: none;
+            border: none;
+            color: rgba(248,81,73,0.45);
+            cursor: pointer;
+            font-size: 1rem;
+            padding: 0.2rem;
+            transition: color 0.2s;
+            display: flex;
+            align-items: center;
+        }
+        .section-card .s-del:hover { color: #f85149; }
+
+        /* Files panel */
+        #filesPanel {
+            display: none;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 18px;
+            padding: 1.5rem;
+        }
+        .files-panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.2rem;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+        }
+        .files-panel-header h3 {
+            font-size: 1.15rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .file-row {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            padding: 0.75rem 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            animation: fadeUp 0.3s ease both;
+            animation-delay: calc(var(--stagger,0) * 0.05s);
+        }
+        .file-row:last-child { border-bottom: none; }
+        .file-row .fr-icon { font-size: 1.4rem; color: #f85149; flex-shrink: 0; }
+        .file-row .fr-name { flex: 1; font-size: 0.92rem; color: var(--text-primary); word-break: break-word; }
+        .file-row .fr-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+        /* Upload modal */
+        #uploadModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(4px);
+        }
+        #uploadModal.open { display: flex; }
+        .modal-card {
+            background: #141414;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 20px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 460px;
+            position: relative;
+            animation: scaleIn 0.25s ease;
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to   { transform: scale(1);   opacity: 1; }
+        }
+        .modal-card h3 { font-size: 1.2rem; margin-bottom: 1.2rem; display: flex; align-items: center; gap: 0.5rem; }
+        .modal-close {
+            position: absolute;
+            top: 1rem; right: 1rem;
+            background: none; border: none;
+            color: var(--text-muted);
+            cursor: pointer; font-size: 1.3rem; display: flex;
+        }
+        .modal-close:hover { color: var(--text-primary); }
+        .modal-card .form-group { margin-bottom: 1rem; }
+        .modal-card label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.4rem; }
+        .modal-card .styled-input { width: 100%; }
+
+        .status-msg { margin-top: 0.8rem; font-size: 0.88rem; min-height: 1.2em; text-align: center; }
+        .status-msg.success { color: #3fb950; }
+        .status-msg.error   { color: #f85149; }
+
+        .empty-state { text-align: center; color: var(--text-muted); padding: 2rem 1rem; font-size: 0.95rem; }
+        .empty-state ion-icon { font-size: 2.5rem; display: block; margin: 0 auto 0.7rem; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(14px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="bgCanvas" class="bg-canvas"></canvas>
+
+    <nav class="topbar">
+        <a href="/" class="logo">
+            <img src="/static/akgec-logo.png" alt="AKGEC Logo">
+            AKGEC <span>Space</span>
+        </a>
+        <a href="/admin" class="nav-btn"><ion-icon name="arrow-back-outline"></ion-icon> Back to Upload</a>
+    </nav>
+
+    <main class="fn-container">
+        <div class="fn-header">
+            <h1><ion-icon name="journal-outline" style="vertical-align:middle;margin-right:0.4rem;"></ion-icon>Faculty Notes Manager</h1>
+            <p>Create sections (like folders) and upload PDFs inside them. Students can only view and download.</p>
+        </div>
+
+        <!-- Auth Gate -->
+        <div id="authGate">
+            <div class="glass-card">
+                <h2><ion-icon name="lock-closed-outline" style="vertical-align:middle;margin-right:0.3rem;"></ion-icon>Admin Access</h2>
+                <p>Enter your admin passcode to manage faculty notes.</p>
+                <input type="password" id="authKeyInput" class="styled-input" placeholder="Enter Admin Passcode">
+                <button class="btn-primary" id="authBtn" style="width:100%;">
+                    <span>Unlock</span><ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+                <div id="authStatus" class="status-msg"></div>
+            </div>
+        </div>
+
+        <!-- Main Panel (shown after auth) -->
+        <div id="mainPanel">
+            <!-- Toolbar: Create Section -->
+            <div class="toolbar">
+                <input type="text" id="newSectionName" class="styled-input" placeholder="New section name (e.g. Physics, Maths, DBMS)">
+                <button class="btn-sm btn-create" id="createSectionBtn">
+                    <ion-icon name="add-circle-outline"></ion-icon> Create Section
+                </button>
+                <span id="createStatus" class="status-msg" style="margin:0;"></span>
+            </div>
+
+            <!-- Sections Grid -->
+            <div class="sections-grid" id="sectionsGrid">
+                <div class="empty-state" style="grid-column:1/-1;">
+                    <ion-icon name="hourglass-outline" class="spin"></ion-icon>
+                    Loading sections...
+                </div>
+            </div>
+
+            <!-- Files Panel -->
+            <div id="filesPanel">
+                <div class="files-panel-header">
+                    <h3>
+                        <ion-icon name="folder-open-outline" style="color:#d4a017;"></ion-icon>
+                        <span id="activeSectionLabel">Section</span>
+                    </h3>
+                    <button class="btn-sm btn-upload-file" id="openUploadModalBtn">
+                        <ion-icon name="cloud-upload-outline"></ion-icon> Upload PDF
+                    </button>
+                </div>
+                <div id="filesListContainer">
+                    <div class="empty-state">
+                        <ion-icon name="document-text-outline"></ion-icon>
+                        <p>No files yet. Click "Upload PDF" to add one.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Upload Modal -->
+    <div id="uploadModal">
+        <div class="modal-card">
+            <button class="modal-close" id="closeModalBtn"><ion-icon name="close-outline"></ion-icon></button>
+            <h3>
+                <ion-icon name="cloud-upload-outline" style="color:#58a6ff;"></ion-icon>
+                Upload to <span id="modalSectionName" style="color:#d4a017;"></span>
+            </h3>
+            <form id="uploadFileForm">
+                <div class="form-group">
+                    <label for="fileDisplayName">Display Name (e.g. Unit 1, Unit 2)</label>
+                    <input type="text" id="fileDisplayName" class="styled-input" placeholder="e.g. Unit 1" required>
+                </div>
+                <div class="form-group">
+                    <div class="file-drop-area" id="modalDropArea">
+                        <ion-icon name="document-attach-outline" class="upload-icon-large"></ion-icon>
+                        <span class="file-msg" id="modalFileMsg">Drag & Drop or Click to choose PDF</span>
+                        <input type="file" id="modalFileInput" accept=".pdf,image/*" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary" id="modalUploadBtn" style="width:100%;">
+                    <span>Upload</span><ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+                <div id="modalStatus" class="status-msg"></div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/static/particles.js"></script>
+    <script src="/static/faculty_notes_admin.js"></script>
+</body>
+
+</html>

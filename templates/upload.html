@@ -46,7 +46,6 @@
                             <option value="st">ST Papers</option>
                             <option value="put">PUT Papers</option>
                             <option value="ut">UT Papers</option>
-                            <option value="notes">Faculty Notes</option>
                         </select>
                     </div>
                     <div class="form-group" id="branchGroup" style="display:none;">
@@ -104,6 +103,20 @@
                 </button>
             </form>
             <div id="uploadStatus" class="status-msg"></div>
+        </div>
+
+        <!-- Faculty Notes Manager shortcut -->
+        <div class="glass-card" style="margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.4rem 1.8rem;">
+            <div>
+                <div style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;">
+                    <ion-icon name="journal-outline" style="color:#d4a017;font-size:1.3rem;"></ion-icon>
+                    Faculty Notes Manager
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">Create sections &amp; upload notes PDFs in one place.</div>
+            </div>
+            <a href="/admin/faculty-notes" class="btn-primary" style="text-decoration:none;">
+                <span>Open Manager</span><ion-icon name="arrow-forward-outline"></ion-icon>
+            </a>
         </div>
     </main>
 

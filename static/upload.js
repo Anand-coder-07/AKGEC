@@ -34,18 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     typeSelect.addEventListener('change', (e) => {
-        if (e.target.value === 'notes') {
-            sessionGroup.style.display = 'none';
-            semGroup.style.display = 'none';
-            sessionSelect.removeAttribute('required');
-            semSelect.removeAttribute('required');
-        } else {
-            sessionGroup.style.display = 'flex';
-            semGroup.style.display = 'flex';
-            sessionSelect.setAttribute('required', 'required');
-            if (yearSelect.value) {
-                semSelect.setAttribute('required', 'required');
-            }
+        sessionGroup.style.display = 'flex';
+        semGroup.style.display = 'flex';
+        sessionSelect.setAttribute('required', 'required');
+        if (yearSelect.value) {
+            semSelect.setAttribute('required', 'required');
         }
     });
 

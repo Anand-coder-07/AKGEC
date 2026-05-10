@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchFacultySections() {
         explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading sections...</div>`;
         try {
-            const res = await fetch('/api/fn/sections');
+            const res = await fetch(`/api/fn/sections?year=${year}`);
             const data = await res.json();
             if (!res.ok || data.error) {
                 explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${data.error || 'Failed to load.'}</p></div>`;
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchFacultyFiles(section) {
         explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading files...</div>`;
         try {
-            const res = await fetch(`/api/fn/files/${encodeURIComponent(section)}`);
+            const res = await fetch(`/api/fn/files/${encodeURIComponent(year)}/${encodeURIComponent(section)}`);
             const data = await res.json();
             if (!res.ok || data.error) {
                 explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${data.error || 'Failed to load.'}</p></div>`;

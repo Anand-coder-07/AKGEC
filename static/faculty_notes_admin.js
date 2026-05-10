@@ -1,6 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
     let adminKey = '';
     let activeSection = null;
+    let activeYear = '1st_year';
+
+    const yearLabels = {
+        '1st_year': '1st Year',
+        '2nd_year': '2nd Year',
+        '3rd_year': '3rd Year',
+        '4th_year': '4th Year'
+    };
 
     // --- Elements ---
     const authGate       = document.getElementById('authGate');
@@ -9,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const authStatus     = document.getElementById('authStatus');
     const mainPanel      = document.getElementById('mainPanel');
 
+    const yearTabs       = document.getElementById('yearTabs');
     const newSectionName = document.getElementById('newSectionName');
     const createSectionBtn = document.getElementById('createSectionBtn');
     const createStatus   = document.getElementById('createStatus');
@@ -30,26 +39,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalUploadBtn = document.getElementById('modalUploadBtn');
     const modalStatus    = document.getElementById('modalStatus');
 
-    // --- Auth ---
+    // --- Auth (now uses dedicated /api/fn/verify endpoint) ---
     authBtn.addEventListener('click', async () => {
         const key = authKeyInput.value.trim();
         if (!key) { showStatus(authStatus, 'Enter passcode.', 'error'); return; }
-        // Verify by hitting a protected endpoint
+        authBtn.disabled = true;
+        authBtn.innerHTML = '<ion-icon name="sync-outline" class="spin"></ion-icon> <span>Verifying...</span>';
         try {
-            const res = await fetch('/api/fn/sections', {
+            const res = await fetch('/api/fn/verify', {
+                method: 'POST',
                 headers: { 'X-Admin-Key': key }
             });
-            if (res.status === 401) { showStatus(authStatus, 'Invalid passcode.', 'error'); return; }
+            if (res.status === 401) {
+                showStatus(authStatus, 'Invalid passcode.', 'error');
+                return;
+            }
             adminKey = key;
             authGate.style.display = 'none';
             mainPanel.style.display = 'block';
+            renderYearTabs();
             loadSections();
         } catch (e) {
             showStatus(authStatus, 'Connection error.', 'error');
+        } finally {
+            authBtn.disabled = false;
+            authBtn.innerHTML = '<span>Unlock</span><ion-icon name="arrow-forward-outline"></ion-icon>';
         }
     });
 
     authKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') authBtn.click(); });
+
+    // --- Year Tabs ---
+    function renderYearTabs() {
+        yearTabs.innerHTML = '';
+        Object.entries(yearLabels).forEach(([key, label]) => {
+            const tab = document.createElement('button');
+            tab.className = `year-tab ${key === activeYear ? 'active' : ''}`;
+            tab.textContent = label;
+            tab.dataset.year = key;
+            tab.addEventListener('click', () => {
+                activeYear = key;
+                activeSection = null;
+                filesPanel.style.display = 'none';
+                renderYearTabs();
+                loadSections();
+            });
+            yearTabs.appendChild(tab);
+        });
+    }
 
     // --- Create Section ---
     createSectionBtn.addEventListener('click', async () => {
@@ -60,11 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/fn/sections', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
-                body: JSON.stringify({ name })
+                body: JSON.stringify({ name, year: activeYear })
             });
             const data = await res.json();
             if (!res.ok) { showStatus(createStatus, data.error || 'Failed.', 'error'); return; }
-            showStatus(createStatus, `Section "${name}" created!`, 'success');
+            showStatus(createStatus, `Section "${name}" created in ${yearLabels[activeYear]}!`, 'success');
             newSectionName.value = '';
             loadSections();
         } catch (e) {
@@ -80,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadSections() {
         sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><ion-icon name="hourglass-outline" class="spin"></ion-icon> Loading...</div>`;
         try {
-            const res = await fetch('/api/fn/sections', { headers: { 'X-Admin-Key': adminKey } });
+            const res = await fetch(`/api/fn/sections?year=${activeYear}`, { headers: { 'X-Admin-Key': adminKey } });
             const data = await res.json();
             if (!res.ok) { sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Failed to load sections.</div>`; return; }
             renderSections(data.sections || []);
@@ -91,7 +128,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderSections(sections) {
         if (sections.length === 0) {
-            sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><ion-icon name="folder-open-outline"></ion-icon><p>No sections yet. Create one above!</p></div>`;
+            sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><ion-icon name="folder-open-outline"></ion-icon><p>No sections in ${yearLabels[activeYear]} yet. Create one above!</p></div>`;
             return;
         }
         sectionsGrid.innerHTML = sections.map((s, i) => `
@@ -119,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const sec = btn.getAttribute('data-del');
-                if (!confirm(`Delete section "${sec}" and ALL its files? This cannot be undone.`)) return;
+                if (!confirm(`Delete section "${sec}" and ALL its files from ${yearLabels[activeYear]}? This cannot be undone.`)) return;
                 await deleteSection(sec);
             });
         });
@@ -127,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function deleteSection(section) {
         try {
-            const res = await fetch(`/api/fn/sections/${encodeURIComponent(section)}`, {
+            const res = await fetch(`/api/fn/sections/${encodeURIComponent(activeYear)}/${encodeURIComponent(section)}`, {
                 method: 'DELETE',
                 headers: { 'X-Admin-Key': adminKey }
             });
@@ -146,8 +183,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Select Section → load its files ---
     function selectSection(section) {
         activeSection = section;
-        activeSectionLabel.textContent = section;
-        modalSectionName.textContent = section;
+        activeSectionLabel.textContent = `${section} (${yearLabels[activeYear]})`;
+        modalSectionName.textContent = `${section} (${yearLabels[activeYear]})`;
         filesPanel.style.display = 'block';
         loadFiles(section);
         filesPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -156,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadFiles(section) {
         filesListContainer.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon> Loading files...</div>`;
         try {
-            const res = await fetch(`/api/fn/files/${encodeURIComponent(section)}`, {
+            const res = await fetch(`/api/fn/files/${encodeURIComponent(activeYear)}/${encodeURIComponent(section)}`, {
                 headers: { 'X-Admin-Key': adminKey }
             });
             const data = await res.json();
@@ -261,6 +298,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const formData = new FormData();
         formData.append('section', activeSection);
+        formData.append('year', activeYear);
         formData.append('display_name', displayName);
         formData.append('file', file);
         formData.append('admin_key', adminKey);

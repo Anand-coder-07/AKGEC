@@ -7,3 +7,4 @@ dummy_paper.pdf
 .env
 client_secret.json
 oauth_tokens.json
+fn_sections.json

@@ -23,16 +23,33 @@ ADMIN_KEY = os.environ.get('ADMIN_KEY', 'akgec_admin')
 # Faculty Notes sections storage path
 FN_SECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'fn_sections.json')
 
+FN_YEARS = ['1st_year', '2nd_year', '3rd_year', '4th_year']
+
 def load_fn_sections():
-    """Load faculty notes sections from local JSON file."""
+    """Load faculty notes sections from local JSON file (year-based dict)."""
+    default = {y: [] for y in FN_YEARS}
     if not os.path.exists(FN_SECTIONS_FILE):
-        return []
+        return default
     try:
         with open(FN_SECTIONS_FILE, 'r') as f:
             data = json.load(f)
-            return data.get('sections', [])
+            stored = data.get('sections', {})
+            # Migrate from old list format to new dict format
+            if isinstance(stored, list):
+                default['1st_year'] = stored
+                save_fn_sections(default)
+                return default
+            
+            # Deep copy to ensure no shared references
+            import copy
+            result = copy.deepcopy(default)
+            if isinstance(stored, dict):
+                for y in FN_YEARS:
+                    if y in stored and isinstance(stored[y], list):
+                        result[y] = stored[y]
+            return result
     except Exception:
-        return []
+        return default
 
 def save_fn_sections(sections):
     """Save faculty notes sections to local JSON file."""
@@ -358,66 +375,93 @@ def fn_auth():
     return key == ADMIN_KEY
 
 
+@app.route('/api/fn/verify', methods=['POST'])
+def fn_verify():
+    """Dedicated endpoint to verify admin passcode."""
+    if not fn_auth():
+        return jsonify({'error': 'Invalid passcode'}), 401
+    return jsonify({'success': True}), 200
+
+
 @app.route('/api/fn/sections', methods=['GET'])
 def fn_get_sections():
-    """List all sections. Public for GET; admin check done via header for write ops."""
-    sections = load_fn_sections()
-    return jsonify({'sections': sections}), 200
+    """List sections for a given year. Public for browsing."""
+    try:
+        year = request.args.get('year', '1st_year')
+        all_sections = load_fn_sections()
+        sections = all_sections.get(year, [])
+        return jsonify({'sections': sections, 'year': year}), 200
+    except Exception as e:
+        return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
 @app.route('/api/fn/sections', methods=['POST'])
 def fn_create_section():
-    if not fn_auth():
-        return jsonify({'error': 'Unauthorized'}), 401
-    data = request.get_json()
-    name = (data.get('name') or '').strip() if data else ''
-    if not name:
-        return jsonify({'error': 'Section name is required'}), 400
-    sections = load_fn_sections()
-    if name in sections:
-        return jsonify({'error': f'Section "{name}" already exists'}), 409
-    sections.append(name)
-    save_fn_sections(sections)
-    return jsonify({'success': True, 'sections': sections}), 200
-
-
-@app.route('/api/fn/sections/<section_name>', methods=['DELETE'])
-def fn_delete_section(section_name):
-    if not fn_auth():
-        return jsonify({'error': 'Unauthorized'}), 401
-    sections = load_fn_sections()
-    if section_name not in sections:
-        return jsonify({'error': 'Section not found'}), 404
-
-    # Delete all Drive files belonging to this section
     try:
-        service = get_drive_service()
-        if service:
-            prefix = f"fn_{section_name}_"
-            query = f"'{DRIVE_FOLDER_ID}' in parents and name contains 'fn_{section_name}_' and trashed = false"
-            results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
-            for f in results.get('files', []):
-                if f['name'].startswith(prefix):
-                    service.files().delete(fileId=f['id']).execute()
+        if not fn_auth():
+            return jsonify({'error': 'Unauthorized'}), 401
+        data = request.get_json()
+        name = (data.get('name') or '').strip() if data else ''
+        year = (data.get('year') or '').strip() if data else ''
+        if not name:
+            return jsonify({'error': 'Section name is required'}), 400
+        if year not in FN_YEARS:
+            return jsonify({'error': 'Invalid year'}), 400
+        all_sections = load_fn_sections()
+        if name in all_sections[year]:
+            return jsonify({'error': f'Section "{name}" already exists in this year'}), 409
+        all_sections[year].append(name)
+        save_fn_sections(all_sections)
+        return jsonify({'success': True, 'sections': all_sections[year]}), 200
     except Exception as e:
-        print(f"[FN] Error deleting files for section {section_name}: {e}")
-
-    sections.remove(section_name)
-    save_fn_sections(sections)
-    return jsonify({'success': True}), 200
+        return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
-@app.route('/api/fn/files/<section_name>', methods=['GET'])
-def fn_get_files(section_name):
-    """List files in a section. Public endpoint."""
-    sections = load_fn_sections()
-    if section_name not in sections:
-        return jsonify({'error': 'Section not found'}), 404
-    service = get_drive_service()
-    if not service:
-        return jsonify({'error': 'Google Drive not configured'}), 500
+@app.route('/api/fn/sections/<year>/<section_name>', methods=['DELETE'])
+def fn_delete_section(year, section_name):
     try:
-        prefix = f"fn_{section_name}_"
+        if not fn_auth():
+            return jsonify({'error': 'Unauthorized'}), 401
+        if year not in FN_YEARS:
+            return jsonify({'error': 'Invalid year'}), 400
+        all_sections = load_fn_sections()
+        if section_name not in all_sections[year]:
+            return jsonify({'error': 'Section not found'}), 404
+
+        # Delete all Drive files belonging to this section
+        try:
+            service = get_drive_service()
+            if service:
+                prefix = f"fn_{year}_{section_name}_"
+                query = f"'{DRIVE_FOLDER_ID}' in parents and name contains 'fn_{year}_{section_name}_' and trashed = false"
+                results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
+                for f in results.get('files', []):
+                    if f['name'].startswith(prefix):
+                        service.files().delete(fileId=f['id']).execute()
+        except Exception as e:
+            print(f"[FN] Error deleting files for section {year}/{section_name}: {e}")
+
+        all_sections[year].remove(section_name)
+        save_fn_sections(all_sections)
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        return jsonify({'error': f'Server Error: {str(e)}'}), 500
+
+
+@app.route('/api/fn/files/<year>/<section_name>', methods=['GET'])
+def fn_get_files(year, section_name):
+    """List files in a section. Public endpoint."""
+    try:
+        if year not in FN_YEARS:
+            return jsonify({'error': 'Invalid year'}), 400
+        all_sections = load_fn_sections()
+        if section_name not in all_sections.get(year, []):
+            return jsonify({'error': 'Section not found'}), 404
+        service = get_drive_service()
+        if not service:
+            return jsonify({'error': 'Google Drive not configured'}), 500
+        
+        prefix = f"fn_{year}_{section_name}_"
         query = f"'{DRIVE_FOLDER_ID}' in parents and name contains '{prefix}' and trashed = false"
         results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
         files = []
@@ -427,50 +471,54 @@ def fn_get_files(section_name):
                 files.append({'id': f['id'], 'display_name': display_name})
         return jsonify({'files': files}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
 @app.route('/api/fn/upload', methods=['POST'])
 def fn_upload_file():
-    if not fn_auth():
-        return jsonify({'error': 'Unauthorized'}), 401
-    section = request.form.get('section', '').strip()
-    display_name = request.form.get('display_name', '').strip()
-    if 'file' not in request.files or not section or not display_name:
-        return jsonify({'error': 'Missing file, section, or display name'}), 400
-    sections = load_fn_sections()
-    if section not in sections:
-        return jsonify({'error': 'Section not found'}), 404
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No file selected'}), 400
-
-    # Store on Drive as: fn_{section}_{display_name}
-    drive_name = f"fn_{section}_{display_name}"
-    service = get_drive_service()
-    if not service:
-        return jsonify({'error': 'Google Drive not configured'}), 500
     try:
+        if not fn_auth():
+            return jsonify({'error': 'Unauthorized'}), 401
+        section = request.form.get('section', '').strip()
+        year = request.form.get('year', '').strip()
+        display_name = request.form.get('display_name', '').strip()
+        if 'file' not in request.files or not section or not display_name or not year:
+            return jsonify({'error': 'Missing file, year, section, or display name'}), 400
+        if year not in FN_YEARS:
+            return jsonify({'error': 'Invalid year'}), 400
+        all_sections = load_fn_sections()
+        if section not in all_sections.get(year, []):
+            return jsonify({'error': 'Section not found'}), 404
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+
+        # Store on Drive as: fn_{year}_{section}_{display_name}
+        drive_name = f"fn_{year}_{section}_{display_name}"
+        service = get_drive_service()
+        if not service:
+            return jsonify({'error': 'Google Drive not configured'}), 500
+        
         file_metadata = {'name': drive_name, 'parents': [DRIVE_FOLDER_ID]}
         media = MediaIoBaseUpload(file.stream, mimetype=file.content_type, resumable=True)
         drive_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         return jsonify({'success': True, 'id': drive_file.get('id')}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
 @app.route('/api/fn/file/<file_id>', methods=['DELETE'])
 def fn_delete_file(file_id):
-    if not fn_auth():
-        return jsonify({'error': 'Unauthorized'}), 401
-    service = get_drive_service()
-    if not service:
-        return jsonify({'error': 'Google Drive not configured'}), 500
     try:
+        if not fn_auth():
+            return jsonify({'error': 'Unauthorized'}), 401
+        service = get_drive_service()
+        if not service:
+            return jsonify({'error': 'Google Drive not configured'}), 500
         service.files().delete(fileId=file_id).execute()
         return jsonify({'success': True}), 200
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
 if __name__ == '__main__':

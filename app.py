@@ -25,9 +25,52 @@ FN_SECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'fn_sections.json')
 
 FN_YEARS = ['1st_year', '2nd_year', '3rd_year', '4th_year']
 
+# --- Faculty Notes config sync with Google Drive ---
+FN_CONFIG_FILENAME = "config_fn_sections.json"
+
+def get_fn_config_file_id(service):
+    query = f"'{DRIVE_FOLDER_ID}' in parents and name = '{FN_CONFIG_FILENAME}' and trashed = false"
+    results = service.files().list(q=query, fields="files(id)", pageSize=1).execute()
+    files = results.get('files', [])
+    if files:
+        return files[0]['id']
+    return None
+
 def load_fn_sections():
-    """Load faculty notes sections from local JSON file (year-based dict)."""
+    """Load faculty notes sections from Google Drive, fallback to local."""
     default = {y: [] for y in FN_YEARS}
+    
+    # Try fetching from Google Drive
+    try:
+        service = get_drive_service()
+        if service:
+            file_id = get_fn_config_file_id(service)
+            if file_id:
+                request_file = service.files().get_media(fileId=file_id)
+                fh = io.BytesIO()
+                downloader = MediaIoBaseDownload(fh, request_file)
+                done = False
+                while not done:
+                    _, done = downloader.next_chunk()
+                fh.seek(0)
+                data = json.loads(fh.read().decode('utf-8'))
+                stored = data.get('sections', {})
+                import copy
+                result = copy.deepcopy(default)
+                if isinstance(stored, dict):
+                    for y in FN_YEARS:
+                        if y in stored and isinstance(stored[y], list):
+                            result[y] = stored[y]
+                
+                # Sync local file with drive data
+                with open(FN_SECTIONS_FILE, 'w') as f:
+                    json.dump({'sections': result}, f)
+                    
+                return result
+    except Exception as e:
+        print(f"[FN Sync] Error loading from Drive: {e}")
+
+    # Fallback to local file
     if not os.path.exists(FN_SECTIONS_FILE):
         return default
     try:
@@ -40,7 +83,6 @@ def load_fn_sections():
                 save_fn_sections(default)
                 return default
             
-            # Deep copy to ensure no shared references
             import copy
             result = copy.deepcopy(default)
             if isinstance(stored, dict):
@@ -52,9 +94,29 @@ def load_fn_sections():
         return default
 
 def save_fn_sections(sections):
-    """Save faculty notes sections to local JSON file."""
+    """Save faculty notes sections to local JSON file and Google Drive."""
+    # Local save
     with open(FN_SECTIONS_FILE, 'w') as f:
         json.dump({'sections': sections}, f)
+        
+    # Drive save
+    try:
+        service = get_drive_service()
+        if service:
+            file_id = get_fn_config_file_id(service)
+            
+            fh = io.BytesIO(json.dumps({'sections': sections}).encode('utf-8'))
+            media = MediaIoBaseUpload(fh, mimetype='application/json', resumable=True)
+            
+            if file_id:
+                # Update existing
+                service.files().update(fileId=file_id, media_body=media).execute()
+            else:
+                # Create new
+                file_metadata = {'name': FN_CONFIG_FILENAME, 'parents': [DRIVE_FOLDER_ID]}
+                service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    except Exception as e:
+        print(f"[FN Sync] Error saving to Drive: {e}")
 
 # Cached credentials (avoids rebuilding on every request)
 _cached_creds = None

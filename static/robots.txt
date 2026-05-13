@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/faculty-notes
+Disallow: /api/
+
+Sitemap: https://akgec-space.onrender.com/sitemap.xml

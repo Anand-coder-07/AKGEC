@@ -68,6 +68,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const explorerView = document.getElementById('explorerView');
     const breadcrumb = document.getElementById('breadcrumb');
     const pageTitle = document.getElementById('pageTitle');
+    const backBtn = document.getElementById('backBtn');
+
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            if (isFacultyNotesMode) {
+                if (fnSectionSelected) {
+                    fnSectionSelected = null;
+                } else {
+                    isFacultyNotesMode = false;
+                }
+            } else {
+                if (path.length > 0) {
+                    path.pop();
+                }
+            }
+            render();
+        });
+    }
 
     function getLabel(id, list) {
         const item = list.find(i => i.val === id);
@@ -130,6 +148,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function render() {
         renderBreadcrumbs();
         explorerView.innerHTML = '';
+
+        if (backBtn) {
+            if (isFacultyNotesMode && fnSectionSelected) {
+                backBtn.style.display = 'flex';
+            } else if (isFacultyNotesMode && !fnSectionSelected) {
+                backBtn.style.display = 'flex';
+            } else if (!isFacultyNotesMode && path.length > 0) {
+                backBtn.style.display = 'flex';
+            } else {
+                backBtn.style.display = 'none';
+            }
+        }
 
         // --- Faculty Notes Mode ---
         if (isFacultyNotesMode) {

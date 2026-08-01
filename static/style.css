@@ -1,5 +1,5 @@
 /* ===========================================================
-   PREMIUM THEME v2 — refined for readability + luxury polish
+   PREMIUM THEME v3 — centered nav, light/dark, micro-interactions
 =========================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Outfit:wght@300;400;500;600;700;800&display=swap');
@@ -49,6 +49,36 @@
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* =====================================
+   Light theme override (toggle via html[data-theme="light"])
+===================================== */
+html[data-theme="light"] {
+    --bg-color: #faf7f2;
+    --text-primary: #1a140f;
+    --text-secondary: #4a4238;
+    --text-tertiary: #786f62;
+    --card-bg: rgba(20, 16, 10, 0.035);
+    --card-bg-hover: rgba(20, 16, 10, 0.06);
+    --card-border: rgba(138, 28, 40, 0.14);
+    --nav-bg: rgba(250, 247, 242, 0.78);
+    --footer-bg: #f1ebe0;
+    --input-bg: rgba(255, 255, 255, 0.65);
+    --shadow-sm: 0 2px 8px rgba(20, 14, 8, 0.08);
+    --shadow-md: 0 12px 30px rgba(20, 14, 8, 0.1);
+    --shadow-lg: 0 24px 60px rgba(20, 14, 8, 0.14);
+}
+html[data-theme="light"] body {
+    background-image:
+        radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--accent-color) 5%, transparent) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, color-mix(in srgb, var(--accent-secondary) 6%, transparent) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, color-mix(in srgb, var(--accent-color) 3%, transparent) 0%, transparent 50%),
+        linear-gradient(135deg, #fdfbf7, #f8f0e2, #fbf4ea, #f4ecdc);
+}
+html[data-theme="light"] .bg-canvas,
+html[data-theme="light"] body::before { opacity: 0.2; }
+html[data-theme="light"] html::before { opacity: 0.02; }
+html[data-theme="light"] .landing-hero img { background-color: #fff; }
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -91,6 +121,7 @@ body {
     overflow-x: hidden;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 p { color: var(--text-secondary); line-height: var(--leading-relaxed); }
@@ -137,6 +168,7 @@ ion-icon, [class*="icon-"], [class*="fa-"] {
     background-size: 280px 280px, 360px 360px, 460px 460px;
     animation: stars1 100s linear infinite;
     opacity: 0.55;
+    transition: opacity 0.4s ease;
 }
 
 body::before {
@@ -151,6 +183,7 @@ body::before {
         radial-gradient(circle, #d4a52a20 0%, transparent 40%);
     filter: blur(100px);
     animation: aurora 50s linear infinite alternate;
+    transition: opacity 0.4s ease;
 }
 
 html::before {
@@ -161,6 +194,7 @@ html::before {
     opacity: 0.035;
     z-index: 9999;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+    transition: opacity 0.4s ease;
 }
 
 .bg-logo {
@@ -172,6 +206,7 @@ html::before {
     opacity: 0.22;
     z-index: -1;
     pointer-events: none;
+    transform: translate(-50%, -50%);
     animation: spinBg 60s linear infinite;
 }
 
@@ -256,7 +291,7 @@ main::before {
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* =====================================
-   Glassmorphic Navbar
+   Glassmorphic Navbar — logo centered
 ===================================== */
 
 .topbar {
@@ -265,7 +300,7 @@ main::before {
     z-index: 100;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
     padding: 0.9rem 2.5rem;
     background: var(--nav-bg);
     backdrop-filter: var(--glass-blur) var(--glass-saturate);
@@ -275,6 +310,10 @@ main::before {
 }
 
 .logo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
     display: flex;
     align-items: center;
     gap: 0.8rem;
@@ -284,6 +323,11 @@ main::before {
     text-decoration: none;
     color: var(--text-primary);
     letter-spacing: 0.3px;
+    transition: transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.logo:hover, .logo:focus-visible {
+    transform: translate(-50%, -50%) scale(1.04);
 }
 
 .logo img {
@@ -297,6 +341,36 @@ main::before {
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+}
+
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.theme-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(212, 165, 42, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(212, 165, 42, 0.22);
+    color: var(--accent-secondary);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.theme-toggle ion-icon { font-size: 1.25rem; }
+
+.theme-toggle:hover, .theme-toggle:focus-visible {
+    background: rgba(212, 165, 42, 0.16);
+    border-color: var(--accent-secondary);
+    transform: rotate(18deg);
+    box-shadow: var(--shadow-gold);
 }
 
 .nav-btn {
@@ -358,7 +432,7 @@ main::before {
 
 .landing-hero {
     text-align: center;
-    margin-bottom: 3.5rem;
+    margin-bottom: 2.5rem;
     animation: fadeInDown 1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -453,10 +527,68 @@ main::before {
     letter-spacing: 0.2px;
 }
 
+/* ---- Stats strip ---- */
+.stats-strip {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2.75rem;
+    flex-wrap: wrap;
+    max-width: 720px;
+    margin: 0 auto 3.5rem;
+    padding: 1.5rem 2.5rem;
+    background: var(--card-bg);
+    backdrop-filter: var(--glass-blur) var(--glass-saturate);
+    -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
+    border: 1px solid var(--card-border);
+    border-radius: 18px;
+    box-shadow: var(--shadow-sm);
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.stat-num {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 700;
+    color: var(--accent-secondary);
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: var(--text-xs);
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.stat-divider {
+    width: 1px;
+    height: 32px;
+    background: var(--card-border);
+}
+
+/* ---- Generic scroll-reveal ---- */
+.reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.in-view {
+    opacity: 1;
+    transform: translateY(0);
+}
+
 .year-cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 2rem;
+    perspective: 1400px;
 }
 
 .year-card {
@@ -472,11 +604,13 @@ main::before {
     border-radius: 20px;
     text-decoration: none;
     color: var(--text-primary);
-    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.4s, box-shadow 0.4s, background 0.4s;
+    transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.4s, box-shadow 0.4s, background 0.4s;
     overflow: hidden;
     animation: fadeInUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     animation-delay: calc(var(--i, 0) * 0.12s);
     opacity: 0;
+    transform-style: preserve-3d;
+    will-change: transform;
 }
 
 .year-card:nth-child(1) { --i: 0; --card-accent: #d4a52a; }
@@ -513,7 +647,6 @@ main::before {
 
 .year-card:hover, .year-card:focus-visible {
     background: var(--card-bg-hover);
-    transform: translateY(-8px);
     border-color: color-mix(in srgb, var(--card-accent) 45%, transparent);
     box-shadow: var(--shadow-lg), 0 0 30px color-mix(in srgb, var(--card-accent) 12%, transparent);
 }
@@ -535,7 +668,7 @@ main::before {
 }
 
 .year-card:hover .year-card-icon {
-    transform: scale(1.08);
+    transform: scale(1.08) translateZ(20px);
     box-shadow: 0 0 22px color-mix(in srgb, var(--card-accent) 25%, transparent);
 }
 
@@ -893,12 +1026,46 @@ select:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .spin { animation: spin 2s linear infinite; }
 
+/* =====================================
+   Back to top
+===================================== */
+
+.back-to-top {
+    position: fixed;
+    right: 28px;
+    bottom: 100px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: rgba(212, 165, 42, 0.1);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(212, 165, 42, 0.24);
+    color: var(--accent-secondary);
+    cursor: pointer;
+    z-index: 999;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity 0.3s ease, transform 0.3s ease, background 0.3s ease, box-shadow 0.3s ease;
+}
+.back-to-top ion-icon { font-size: 1.3rem; }
+.back-to-top.visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
+.back-to-top:hover, .back-to-top:focus-visible {
+    background: rgba(212, 165, 42, 0.2);
+    box-shadow: var(--shadow-gold);
+}
+
 @media (max-width: 600px) {
     .landing-hero h1 { font-size: 2.2rem; }
     .year-cards-grid { grid-template-columns: 1fr; }
     .topbar { padding: 0.8rem 1.2rem; }
     .browse-container { padding: 1rem; }
     .explorer-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; }
+    .stats-strip { gap: 1.5rem; padding: 1.2rem 1.5rem; }
+    .back-to-top { right: 18px; bottom: 90px; width: 42px; height: 42px; }
 }
 
 /* =====================================

@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,14 +8,179 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
-
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <!-- Scoped styles for the per-file category rows. Kept inline here so this file
+         stays a drop-in replacement without requiring a style.css edit. -->
+    <style>
+        .selected-files {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .file-row {
+            background: var(--card-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.1rem 1.3rem;
+            transition: border-color 0.3s, box-shadow 0.3s;
+            animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .file-row.is-invalid { border-color: rgba(248, 81, 73, 0.5); }
+        .file-row.is-success { border-color: rgba(63, 185, 80, 0.5); }
+        .file-row.is-error { border-color: rgba(248, 81, 73, 0.6); box-shadow: 0 0 18px rgba(248, 81, 73, 0.12); }
+        .file-row-main {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+        .file-row-icon {
+            font-size: 1.7rem;
+            color: var(--accent-secondary);
+            flex-shrink: 0;
+        }
+        .file-row-info { flex: 1; min-width: 0; }
+        .file-row-name {
+            font-weight: 600;
+            font-size: var(--text-sm);
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .file-row-size {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+        }
+        .file-row-remove {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            display: grid;
+            place-items: center;
+            border-radius: 50%;
+            border: 1px solid var(--card-border);
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: var(--transition);
+        }
+        .file-row-remove:hover {
+            background: rgba(248, 81, 73, 0.12);
+            border-color: #f85149;
+            color: #f85149;
+        }
+        .file-row-fields {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 0.7rem;
+            margin-top: 1rem;
+        }
+        .mini-select {
+            width: 100%;
+            padding: 0.6rem 0.7rem;
+            border-radius: 9px;
+            background: var(--input-bg);
+            border: 1px solid var(--card-border);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: var(--text-xs);
+            font-weight: 500;
+            outline: none;
+            transition: var(--transition);
+        }
+        .mini-select:focus, .mini-select:focus-visible {
+            border-color: var(--accent-secondary);
+            box-shadow: 0 0 12px rgba(212, 165, 42, 0.14);
+        }
+        .mini-select:disabled { opacity: 0.4; cursor: not-allowed; }
+        .file-row-progress {
+            width: 100%;
+            height: 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.06);
+            overflow: hidden;
+            margin-top: 0.9rem;
+            display: none;
+        }
+        .file-row.is-uploading .file-row-progress,
+        .file-row.is-success .file-row-progress,
+        .file-row.is-error .file-row-progress {
+            display: block;
+        }
+        .file-row-progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 4px;
+            background: linear-gradient(90deg, var(--accent-color), var(--accent-secondary));
+            transition: width 0.25s ease;
+        }
+        .file-row.is-success .file-row-progress-bar { background: #3fb950; width: 100% !important; }
+        .file-row.is-error .file-row-progress-bar { background: #f85149; }
+        .file-row-status {
+            margin-top: 0.5rem;
+            font-size: var(--text-xs);
+            font-weight: 600;
+            min-height: 1rem;
+        }
+        .file-row.is-success .file-row-status { color: #3fb950; }
+        .file-row.is-error .file-row-status { color: #f85149; }
+        .file-row.is-invalid .file-row-status { color: #f85149; }
+        .apply-all-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-top: 0.5rem;
+        }
+        .apply-all-row p {
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            margin: 0;
+        }
+        .btn-secondary {
+            padding: 0.55rem 1.1rem;
+            border-radius: 10px;
+            background: rgba(212, 165, 42, 0.08);
+            border: 1px solid rgba(212, 165, 42, 0.24);
+            color: var(--accent-secondary);
+            font-weight: 600;
+            font-size: var(--text-xs);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: var(--transition);
+        }
+        .btn-secondary:hover, .btn-secondary:focus-visible {
+            background: rgba(212, 165, 42, 0.16);
+            border-color: var(--accent-secondary);
+            box-shadow: var(--shadow-gold);
+        }
+        .empty-files-hint {
+            font-size: var(--text-xs);
+            color: var(--text-tertiary);
+            text-align: center;
+            padding: 0.5rem;
+        }
+        .summary-bar {
+            display: flex;
+            gap: 1.2rem;
+            flex-wrap: wrap;
+            font-size: var(--text-xs);
+            color: var(--text-secondary);
+            margin-top: 0.4rem;
+        }
+        .summary-bar strong { color: var(--accent-secondary); }
+    </style>
 </head>
-
 <body>
     <canvas id="bgCanvas" class="bg-canvas"></canvas>
-
     <nav class="topbar">
         <a href="/" class="logo">
             <img src="/static/akgec-logo.png" alt="AKGEC Logo">
@@ -24,15 +188,18 @@
         </a>
         <a href="/" class="nav-btn"><ion-icon name="home-outline"></ion-icon> Home</a>
     </nav>
-
     <main class="upload-page-container">
         <div class="glass-card upload-section">
             <h2><ion-icon name="cloud-upload-outline"></ion-icon> Upload Material</h2>
+            <p style="color:var(--text-secondary);font-size:var(--text-sm);margin-top:-0.8rem;margin-bottom:1.2rem;">
+                Add as many PDFs or images as you like — each file gets its own Year, Type, Branch, Session and
+                Semester before it's uploaded.
+            </p>
             <form id="uploadForm">
                 <div class="dropdown-grid">
                     <div class="form-group">
-                        <label for="yearSelect">Year</label>
-                        <select id="yearSelect" name="year" required>
+                        <label for="yearSelect">Default Year</label>
+                        <select id="yearSelect" name="year">
                             <option value="" disabled selected>Select Year</option>
                             <option value="1st_year">1st Year</option>
                             <option value="2nd_year">2nd Year</option>
@@ -41,35 +208,17 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="typeSelect">Material Type</label>
-                        <select id="typeSelect" name="type" required>
+                        <label for="typeSelect">Default Material Type</label>
+                        <select id="typeSelect" name="type">
                             <option value="" disabled selected>Select Type</option>
                             <option value="st">ST Papers</option>
                             <option value="put">PUT Papers</option>
                             <option value="ut">UT Papers</option>
                         </select>
                     </div>
-                    <div class="form-group" id="branchGroup" style="display:none;">
-                        <label for="branchSelect">Branch</label>
-                        <select id="branchSelect" name="branch">
-                            <option value="" disabled selected>Select Branch</option>
-                            <option value="cse">CSE</option>
-                            <option value="cse_aiml">CSE (AI & ML)</option>
-                            <option value="cse_ds">CSE (Data Science)</option>
-                            <option value="cs">Computer Science</option>
-                            <option value="cse_hindi">CSE (Hindi)</option>
-                            <option value="aiml">AI & Machine Learning</option>
-                            <option value="it">Information Technology</option>
-                            <option value="csit">CS & IT</option>
-                            <option value="ece">ECE</option>
-                            <option value="me">Mechanical</option>
-                            <option value="eee">Electrical & Electronics</option>
-                            <option value="ce">Civil</option>
-                        </select>
-                    </div>
                     <div class="form-group" id="sessionGroup">
-                        <label for="sessionSelect">Session</label>
-                        <select id="sessionSelect" name="session" required>
+                        <label for="sessionSelect">Default Session</label>
+                        <select id="sessionSelect" name="session">
                             <option value="" disabled selected>Select Session</option>
                             <option value="2025-26">2025-26</option>
                             <option value="2024-25">2024-25</option>
@@ -79,9 +228,9 @@
                         </select>
                     </div>
                     <div class="form-group" id="semGroup">
-                        <label for="semSelect">Semester</label>
-                        <select id="semSelect" name="semester" required disabled>
-                            <option value="" disabled selected>Select Sem</option>
+                        <label for="semSelect">Default Semester</label>
+                        <select id="semSelect" name="semester" disabled>
+                            <option value="" disabled selected>Select Year First</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -90,22 +239,38 @@
                             class="styled-input">
                     </div>
                 </div>
-
-                <div class="form-group mt-1">
-                    <div class="file-drop-area" id="fileDropArea">
-                        <ion-icon name="document-attach-outline" class="upload-icon-large"></ion-icon>
-                        <span class="file-msg">Drag & Drop or Click to choose file</span>
-                        <input type="file" id="fileInput" name="file" accept=".pdf,image/*" required>
-                    </div>
+                <div class="file-drop-area" id="fileDropArea">
+                    <ion-icon name="cloud-upload-outline" class="upload-icon-large"></ion-icon>
+                    <h3>Drop your files here</h3>
+                    <p>
+                        or
+                        <span id="browseFiles" style="color:var(--accent-secondary);font-weight:600;cursor:pointer;">
+                            Browse Files
+                        </span>
+                    </p>
+                    <small>
+                        Supports PDF & Images
+                        <br>
+                        Select multiple files at once — each one is categorized separately below
+                    </small>
+                    <input type="file" id="fileInput" name="files" accept=".pdf,image/*" multiple hidden>
                 </div>
+                <div class="apply-all-row">
+                    <p id="fileCountLabel">No files selected yet</p>
+                    <button type="button" class="btn-secondary" id="applyAllBtn">
+                        <ion-icon name="copy-outline"></ion-icon> Apply defaults to all files
+                    </button>
+                </div>
+                <div id="selectedFiles" class="selected-files"></div>
+                <div class="summary-bar" id="summaryBar" style="display:none;"></div>
+                <div class="upload-progress-container" id="progressContainer"></div>
                 <button type="submit" class="btn-primary" id="uploadBtn">
-                    <span>Upload Now</span>
-                    <ion-icon name="arrow-forward-outline"></ion-icon>
+                    <ion-icon name="cloud-upload-outline"></ion-icon>
+                    <span id="uploadBtnLabel">Upload Selected Files</span>
                 </button>
             </form>
             <div id="uploadStatus" class="status-msg"></div>
         </div>
-
         <!-- Faculty Notes Manager shortcut -->
         <div class="glass-card" style="margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.4rem 1.8rem;">
             <div>
@@ -120,9 +285,360 @@
             </a>
         </div>
     </main>
-
-    <script src="/static/upload.js"></script>
     <script src="/static/particles.js"></script>
+    <script>
+        /* ===========================================================
+           Multi-file categorized upload
+           - Each selected file gets its own Year / Type / Branch /
+             Session / Semester row, defaulting to the "global" selects
+             (branch has no global default — it's set per file only).
+           - Uploads are sent one file at a time (each with its own
+             FormData) so a single failure doesn't block the rest.
+           IMPORTANT: this posts each file individually to POST
+           "/admin/upload" as multipart/form-data with fields:
+           file, year, type, branch, session, semester, admin_key
+           Adjust ADMIN_UPLOAD_ENDPOINT / field names below to match
+           your actual backend route if it differs.
+        =========================================================== */
+        (function () {
+            const ADMIN_UPLOAD_ENDPOINT = '/admin/upload';
+            const YEAR_OPTIONS = [
+                { value: '1st_year', label: '1st Year' },
+                { value: '2nd_year', label: '2nd Year' },
+                { value: '3rd_year', label: '3rd Year' },
+                { value: '4th_year', label: '4th Year' }
+            ];
+            const TYPE_OPTIONS = [
+                { value: 'st', label: 'ST Papers' },
+                { value: 'put', label: 'PUT Papers' },
+                { value: 'ut', label: 'UT Papers' }
+            ];
+            const BRANCH_OPTIONS = [
+                { value: 'cse', label: 'CSE' },
+                { value: 'cse_aiml', label: 'CSE (AI & ML)' },
+                { value: 'cse_ds', label: 'CSE (Data Science)' },
+                { value: 'cs', label: 'Computer Science' },
+                { value: 'cse_hindi', label: 'CSE (Hindi)' },
+                { value: 'aiml', label: 'AI & Machine Learning' },
+                { value: 'it', label: 'Information Technology' },
+                { value: 'csit', label: 'CS & IT' },
+                { value: 'ece', label: 'ECE' },
+                { value: 'me', label: 'Mechanical' },
+                { value: 'eee', label: 'Electrical & Electronics' },
+                { value: 'ce', label: 'Civil' }
+            ];
+            const SESSION_OPTIONS = ['2025-26', '2024-25', '2023-24', '2022-23', '2021-22'];
+            const SEM_BY_YEAR = {
+                '1st_year': ['1', '2'],
+                '2nd_year': ['3', '4'],
+                '3rd_year': ['5', '6'],
+                '4th_year': ['7', '8']
+            };
+            const yearSelect = document.getElementById('yearSelect');
+            const typeSelect = document.getElementById('typeSelect');
+            const sessionSelect = document.getElementById('sessionSelect');
+            const semSelect = document.getElementById('semSelect');
+            const adminKeyInput = document.getElementById('adminKey');
+            const fileDropArea = document.getElementById('fileDropArea');
+            const fileInput = document.getElementById('fileInput');
+            const browseFiles = document.getElementById('browseFiles');
+            const selectedFilesEl = document.getElementById('selectedFiles');
+            const fileCountLabel = document.getElementById('fileCountLabel');
+            const applyAllBtn = document.getElementById('applyAllBtn');
+            const uploadForm = document.getElementById('uploadForm');
+            const uploadBtn = document.getElementById('uploadBtn');
+            const uploadBtnLabel = document.getElementById('uploadBtnLabel');
+            const uploadStatus = document.getElementById('uploadStatus');
+            const summaryBar = document.getElementById('summaryBar');
+            let fileEntries = []; // { id, file, els }
+            /* ---- Global "default" semester dropdown follows global year ---- */
+            function populateSemesterSelect(selectEl, year, keepValue) {
+                const prev = keepValue !== undefined ? keepValue : selectEl.value;
+                selectEl.innerHTML = '';
+                if (!year || !SEM_BY_YEAR[year]) {
+                    selectEl.disabled = true;
+                    const opt = document.createElement('option');
+                    opt.value = '';
+                    opt.disabled = true;
+                    opt.selected = true;
+                    opt.textContent = 'Select Year First';
+                    selectEl.appendChild(opt);
+                    return;
+                }
+                selectEl.disabled = false;
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.disabled = true;
+                placeholder.textContent = 'Select Sem';
+                selectEl.appendChild(placeholder);
+                let matched = false;
+                SEM_BY_YEAR[year].forEach(function (s) {
+                    const opt = document.createElement('option');
+                    opt.value = s;
+                    opt.textContent = 'Semester ' + s;
+                    if (s === prev) { opt.selected = true; matched = true; }
+                    selectEl.appendChild(opt);
+                });
+                if (!matched) placeholder.selected = true;
+            }
+            yearSelect.addEventListener('change', function () {
+                populateSemesterSelect(semSelect, yearSelect.value);
+            });
+            /* ---- Helpers to build a <select> for a per-file row ---- */
+            function buildSelect(cls, options, placeholder, currentValue) {
+                const sel = document.createElement('select');
+                sel.className = 'mini-select ' + cls;
+                const ph = document.createElement('option');
+                ph.value = '';
+                ph.disabled = true;
+                ph.textContent = placeholder;
+                sel.appendChild(ph);
+                let matched = false;
+                options.forEach(function (o) {
+                    const opt = document.createElement('option');
+                    if (typeof o === 'string') { opt.value = o; opt.textContent = o; }
+                    else { opt.value = o.value; opt.textContent = o.label; }
+                    if (opt.value === currentValue) { opt.selected = true; matched = true; }
+                    sel.appendChild(opt);
+                });
+                if (!matched) ph.selected = true;
+                return sel;
+            }
+            function formatSize(bytes) {
+                if (bytes < 1024) return bytes + ' B';
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+                return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+            }
+            function createFileRow(id, file) {
+                const row = document.createElement('div');
+                row.className = 'file-row';
+                row.dataset.fileId = id;
+                const main = document.createElement('div');
+                main.className = 'file-row-main';
+                const icon = document.createElement('ion-icon');
+                icon.setAttribute('name', file.type.indexOf('image') === 0 ? 'image-outline' : 'document-text-outline');
+                icon.className = 'file-row-icon';
+                const info = document.createElement('div');
+                info.className = 'file-row-info';
+                const name = document.createElement('div');
+                name.className = 'file-row-name';
+                name.textContent = file.name;
+                const size = document.createElement('div');
+                size.className = 'file-row-size';
+                size.textContent = formatSize(file.size);
+                info.appendChild(name);
+                info.appendChild(size);
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'file-row-remove';
+                removeBtn.setAttribute('aria-label', 'Remove ' + file.name);
+                removeBtn.innerHTML = '<ion-icon name="close-outline"></ion-icon>';
+                removeBtn.addEventListener('click', function () { removeFile(id); });
+                main.appendChild(icon);
+                main.appendChild(info);
+                main.appendChild(removeBtn);
+                const fields = document.createElement('div');
+                fields.className = 'file-row-fields';
+                const yearSel = buildSelect('f-year', YEAR_OPTIONS, 'Year', yearSelect.value);
+                const typeSel = buildSelect('f-type', TYPE_OPTIONS, 'Type', typeSelect.value);
+                const branchSel = buildSelect('f-branch', BRANCH_OPTIONS, 'Branch', '');
+                const sessionSel = buildSelect('f-session', SESSION_OPTIONS, 'Session', sessionSelect.value);
+                const semSel = buildSelect('f-sem', [], 'Semester', '');
+                function refreshSem(keep) { populateSemesterSelect(semSel, yearSel.value, keep); }
+                function refreshBranchVisibility() {
+                    branchSel.style.display = yearSel.value === '1st_year' ? 'none' : '';
+                    if (yearSel.value === '1st_year') branchSel.value = '';
+                }
+                yearSel.addEventListener('change', function () {
+                    refreshSem();
+                    refreshBranchVisibility();
+                });
+                refreshSem(semSelect.value);
+                refreshBranchVisibility();
+                fields.appendChild(yearSel);
+                fields.appendChild(typeSel);
+                fields.appendChild(branchSel);
+                fields.appendChild(sessionSel);
+                fields.appendChild(semSel);
+                const progress = document.createElement('div');
+                progress.className = 'file-row-progress';
+                const progressBar = document.createElement('div');
+                progressBar.className = 'file-row-progress-bar';
+                progress.appendChild(progressBar);
+                const status = document.createElement('div');
+                status.className = 'file-row-status';
+                row.appendChild(main);
+                row.appendChild(fields);
+                row.appendChild(progress);
+                row.appendChild(status);
+                return {
+                    row: row,
+                    els: { yearSel: yearSel, typeSel: typeSel, branchSel: branchSel, sessionSel: sessionSel, semSel: semSel, progressBar: progressBar, status: status }
+                };
+            }
+            function updateSummary() {
+                fileCountLabel.textContent = fileEntries.length
+                    ? fileEntries.length + ' file' + (fileEntries.length > 1 ? 's' : '') + ' selected'
+                    : 'No files selected yet';
+                selectedFilesEl.querySelectorAll('.empty-files-hint').forEach(function (n) { n.remove(); });
+                if (!fileEntries.length) {
+                    const hint = document.createElement('p');
+                    hint.className = 'empty-files-hint';
+                    hint.textContent = 'Selected files will appear here, each with its own category fields.';
+                    selectedFilesEl.appendChild(hint);
+                }
+                uploadBtnLabel.textContent = fileEntries.length > 1
+                    ? 'Upload ' + fileEntries.length + ' Files'
+                    : 'Upload Selected Files';
+            }
+            function addFiles(fileList) {
+                Array.from(fileList).forEach(function (file) {
+                    const id = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+                    const built = createFileRow(id, file);
+                    fileEntries.push({ id: id, file: file, els: built.els, row: built.row });
+                    selectedFilesEl.appendChild(built.row);
+                });
+                updateSummary();
+            }
+            function removeFile(id) {
+                fileEntries = fileEntries.filter(function (e) { return e.id !== id; });
+                const row = selectedFilesEl.querySelector('[data-file-id="' + id + '"]');
+                if (row) row.remove();
+                updateSummary();
+            }
+            updateSummary();
+            /* ---- File selection: browse + drag & drop ---- */
+            browseFiles.addEventListener('click', function () { fileInput.click(); });
+            fileDropArea.addEventListener('click', function (e) {
+                if (e.target === browseFiles) return;
+                fileInput.click();
+            });
+            fileInput.addEventListener('change', function () {
+                if (fileInput.files.length) addFiles(fileInput.files);
+                fileInput.value = '';
+            });
+            ['dragenter', 'dragover'].forEach(function (evt) {
+                fileDropArea.addEventListener(evt, function (e) {
+                    e.preventDefault();
+                    fileDropArea.classList.add('dragover');
+                });
+            });
+            ['dragleave', 'drop'].forEach(function (evt) {
+                fileDropArea.addEventListener(evt, function (e) {
+                    e.preventDefault();
+                    fileDropArea.classList.remove('dragover');
+                });
+            });
+            fileDropArea.addEventListener('drop', function (e) {
+                if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+            });
+            /* ---- Apply global defaults to every file row (branch is per-file only) ---- */
+            applyAllBtn.addEventListener('click', function () {
+                fileEntries.forEach(function (entry) {
+                    entry.els.yearSel.value = yearSelect.value;
+                    entry.els.typeSel.value = typeSelect.value;
+                    entry.els.sessionSel.value = sessionSelect.value;
+                    populateSemesterSelect(entry.els.semSel, yearSelect.value, semSelect.value);
+                    entry.els.branchSel.style.display = yearSelect.value === '1st_year' ? 'none' : '';
+                    entry.row.classList.remove('is-invalid');
+                    entry.els.status.textContent = '';
+                });
+            });
+            /* ---- Upload one file, tracked via XHR for progress ---- */
+            function uploadOne(entry, adminKey) {
+                return new Promise(function (resolve) {
+                    const els = entry.els;
+                    const requiresBranch = els.yearSel.value !== '1st_year';
+                    if (!els.yearSel.value || !els.typeSel.value || !els.sessionSel.value || !els.semSel.value || (requiresBranch && !els.branchSel.value)) {
+                        entry.row.classList.add('is-invalid');
+                        els.status.textContent = 'Missing category — please complete all fields for this file.';
+                        resolve({ ok: false, entry: entry });
+                        return;
+                    }
+                    entry.row.classList.remove('is-invalid');
+                    entry.row.classList.add('is-uploading');
+                    els.status.textContent = 'Uploading…';
+                    const formData = new FormData();
+                    formData.append('file', entry.file);
+                    formData.append('year', els.yearSel.value);
+                    formData.append('type', els.typeSel.value);
+                    if (requiresBranch) formData.append('branch', els.branchSel.value);
+                    formData.append('session', els.sessionSel.value);
+                    formData.append('semester', els.semSel.value);
+                    formData.append('admin_key', adminKey);
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', ADMIN_UPLOAD_ENDPOINT, true);
+                    xhr.upload.addEventListener('progress', function (e) {
+                        if (e.lengthComputable) {
+                            const pct = Math.round((e.loaded / e.total) * 100); 
+                            els.progressBar.style.width = pct + '%';
+                        }
+                    });
+                    xhr.onload = function () {
+                        entry.row.classList.remove('is-uploading');
+                        if (xhr.status >= 200 && xhr.status < 300) {
+                            entry.row.classList.add('is-success');
+                            els.status.textContent = 'Uploaded successfully.';
+                            resolve({ ok: true, entry: entry });
+                        } else {
+                            entry.row.classList.add('is-error');
+                            els.status.textContent = 'Upload failed (' + xhr.status + '). Please retry.';
+                            resolve({ ok: false, entry: entry });
+                        }
+                    };
+                    xhr.onerror = function () {
+                        entry.row.classList.remove('is-uploading');
+                        entry.row.classList.add('is-error');
+                        els.status.textContent = 'Network error — upload failed.';
+                        resolve({ ok: false, entry: entry });
+                    };
+                    xhr.send(formData);
+                });
+            }
+            uploadForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                uploadStatus.textContent = '';
+                uploadStatus.className = 'status-msg';
+                if (!fileEntries.length) {
+                    uploadStatus.textContent = 'Please select at least one file to upload.';
+                    uploadStatus.classList.add('error');
+                    return;
+                }
+                const adminKey = adminKeyInput.value.trim();
+                if (!adminKey) {
+                    uploadStatus.textContent = 'Admin passcode is required.';
+                    uploadStatus.classList.add('error');
+                    adminKeyInput.focus();
+                    return;
+                }
+                uploadBtn.disabled = true;
+                summaryBar.style.display = 'flex';
+                summaryBar.textContent = 'Uploading 0 / ' + fileEntries.length + '…';
+                let done = 0;
+                let failed = 0;
+                (async function () {
+                    for (const entry of fileEntries) {
+                        const result = await uploadOne(entry, adminKey);
+                        done += 1;
+                        if (!result.ok) failed += 1;
+                        summaryBar.textContent = 'Uploaded ' + (done - failed) + ' / ' + fileEntries.length +
+                            (failed ? '  •  ' + failed + ' failed' : '');
+                    }
+                    uploadBtn.disabled = false;
+                    if (failed === 0) {
+                        uploadStatus.textContent = 'All ' + fileEntries.length + ' file(s) uploaded successfully!';
+                        uploadStatus.classList.add('success');
+                    } else if (failed === fileEntries.length) {
+                        uploadStatus.textContent = 'Upload failed for all files. Please check the errors above and retry.';
+                        uploadStatus.classList.add('error');
+                    } else {
+                        uploadStatus.textContent = (fileEntries.length - failed) + ' of ' + fileEntries.length +
+                            ' files uploaded. Fix the failed rows above and submit again to retry those.';
+                        uploadStatus.classList.add('error');
+                    }
+                })();
+            });
+        })();
+    </script>
 </body>
-
 </html>

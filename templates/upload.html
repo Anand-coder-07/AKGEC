@@ -192,7 +192,7 @@
         <div class="glass-card upload-section">
             <h2><ion-icon name="cloud-upload-outline"></ion-icon> Upload Material</h2>
             <p style="color:var(--text-secondary);font-size:var(--text-sm);margin-top:-0.8rem;margin-bottom:1.2rem;">
-                Add as many PDFs or images as you like — each file gets its own Year, Type, Branch, Session and
+                Add as many PDFs or images as you like — each file gets its own Year, Type, Session and
                 Semester before it's uploaded.
             </p>
             <form id="uploadForm">
@@ -289,14 +289,13 @@
     <script>
         /* ===========================================================
            Multi-file categorized upload
-           - Each selected file gets its own Year / Type / Branch /
-             Session / Semester row, defaulting to the "global" selects
-             (branch has no global default — it's set per file only).
+           - Each selected file gets its own Year / Type / Session /
+             Semester row, defaulting to the "global" selects.
            - Uploads are sent one file at a time (each with its own
              FormData) so a single failure doesn't block the rest.
            IMPORTANT: this posts each file individually to POST
            "/admin/upload" as multipart/form-data with fields:
-           file, year, type, branch, session, semester, admin_key
+           file, year, type, session, semester, admin_key
            Adjust ADMIN_UPLOAD_ENDPOINT / field names below to match
            your actual backend route if it differs.
         =========================================================== */
@@ -312,20 +311,6 @@
                 { value: 'st', label: 'ST Papers' },
                 { value: 'put', label: 'PUT Papers' },
                 { value: 'ut', label: 'UT Papers' }
-            ];
-            const BRANCH_OPTIONS = [
-                { value: 'cse', label: 'CSE' },
-                { value: 'cse_aiml', label: 'CSE (AI & ML)' },
-                { value: 'cse_ds', label: 'CSE (Data Science)' },
-                { value: 'cs', label: 'Computer Science' },
-                { value: 'cse_hindi', label: 'CSE (Hindi)' },
-                { value: 'aiml', label: 'AI & Machine Learning' },
-                { value: 'it', label: 'Information Technology' },
-                { value: 'csit', label: 'CS & IT' },
-                { value: 'ece', label: 'ECE' },
-                { value: 'me', label: 'Mechanical' },
-                { value: 'eee', label: 'Electrical & Electronics' },
-                { value: 'ce', label: 'Civil' }
             ];
             const SESSION_OPTIONS = ['2025-26', '2024-25', '2023-24', '2022-23', '2021-22'];
             const SEM_BY_YEAR = {
@@ -441,23 +426,15 @@
                 fields.className = 'file-row-fields';
                 const yearSel = buildSelect('f-year', YEAR_OPTIONS, 'Year', yearSelect.value);
                 const typeSel = buildSelect('f-type', TYPE_OPTIONS, 'Type', typeSelect.value);
-                const branchSel = buildSelect('f-branch', BRANCH_OPTIONS, 'Branch', '');
                 const sessionSel = buildSelect('f-session', SESSION_OPTIONS, 'Session', sessionSelect.value);
                 const semSel = buildSelect('f-sem', [], 'Semester', '');
                 function refreshSem(keep) { populateSemesterSelect(semSel, yearSel.value, keep); }
-                function refreshBranchVisibility() {
-                    branchSel.style.display = yearSel.value === '1st_year' ? 'none' : '';
-                    if (yearSel.value === '1st_year') branchSel.value = '';
-                }
                 yearSel.addEventListener('change', function () {
                     refreshSem();
-                    refreshBranchVisibility();
                 });
                 refreshSem(semSelect.value);
-                refreshBranchVisibility();
                 fields.appendChild(yearSel);
                 fields.appendChild(typeSel);
-                fields.appendChild(branchSel);
                 fields.appendChild(sessionSel);
                 fields.appendChild(semSel);
                 const progress = document.createElement('div');
@@ -473,7 +450,7 @@
                 row.appendChild(status);
                 return {
                     row: row,
-                    els: { yearSel: yearSel, typeSel: typeSel, branchSel: branchSel, sessionSel: sessionSel, semSel: semSel, progressBar: progressBar, status: status }
+                    els: { yearSel: yearSel, typeSel: typeSel, sessionSel: sessionSel, semSel: semSel, progressBar: progressBar, status: status }
                 };
             }
             function updateSummary() {
@@ -532,14 +509,13 @@
             fileDropArea.addEventListener('drop', function (e) {
                 if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
             });
-            /* ---- Apply global defaults to every file row (branch is per-file only) ---- */
+            /* ---- Apply global defaults to every file row ---- */
             applyAllBtn.addEventListener('click', function () {
                 fileEntries.forEach(function (entry) {
                     entry.els.yearSel.value = yearSelect.value;
                     entry.els.typeSel.value = typeSelect.value;
                     entry.els.sessionSel.value = sessionSelect.value;
                     populateSemesterSelect(entry.els.semSel, yearSelect.value, semSelect.value);
-                    entry.els.branchSel.style.display = yearSelect.value === '1st_year' ? 'none' : '';
                     entry.row.classList.remove('is-invalid');
                     entry.els.status.textContent = '';
                 });
@@ -548,8 +524,7 @@
             function uploadOne(entry, adminKey) {
                 return new Promise(function (resolve) {
                     const els = entry.els;
-                    const requiresBranch = els.yearSel.value !== '1st_year';
-                    if (!els.yearSel.value || !els.typeSel.value || !els.sessionSel.value || !els.semSel.value || (requiresBranch && !els.branchSel.value)) {
+                    if (!els.yearSel.value || !els.typeSel.value || !els.sessionSel.value || !els.semSel.value) {
                         entry.row.classList.add('is-invalid');
                         els.status.textContent = 'Missing category — please complete all fields for this file.';
                         resolve({ ok: false, entry: entry });
@@ -562,7 +537,6 @@
                     formData.append('file', entry.file);
                     formData.append('year', els.yearSel.value);
                     formData.append('type', els.typeSel.value);
-                    if (requiresBranch) formData.append('branch', els.branchSel.value);
                     formData.append('session', els.sessionSel.value);
                     formData.append('semester', els.semSel.value);
                     formData.append('admin_key', adminKey);

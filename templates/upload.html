@@ -326,13 +326,17 @@
            - Uploads are sent one file at a time (each with its own
              FormData) so a single failure doesn't block the rest.
            IMPORTANT: this posts each file individually to POST
-           "/admin/upload" as multipart/form-data with fields:
+           "/upload" as multipart/form-data with fields:
            file, year, type, session, semester, admin_key
-           Adjust ADMIN_UPLOAD_ENDPOINT / field names below to match
-           your actual backend route if it differs.
+           This must match the Flask route defined in app.py
+           (@app.route('/upload', methods=['POST'])). There is no
+           "/admin/upload" route on the backend — only "/admin"
+           (which just renders this page) and "/upload" (which
+           actually accepts the file). Posting to "/admin/upload"
+           will 404.
         =========================================================== */
         (function () {
-            const ADMIN_UPLOAD_ENDPOINT = '/admin/upload';
+            const ADMIN_UPLOAD_ENDPOINT = '/upload';
             // If your server (Express body-size limit / Multer fileSize / Nginx
             // client_max_body_size) allows larger uploads, raise this to match.
             // Files over this size are flagged before they're ever sent, instead
@@ -660,7 +664,7 @@
                             if (msg) els.errorDetail.textContent = msg;
                             else if (xhr.status === 404) {
                                 els.errorDetail.textContent = 'Server returned 404 — the route "' + ADMIN_UPLOAD_ENDPOINT +
-                                    '" was not found. Check that your Express route matches this exact path and method (POST).';
+                                    '" was not found. Check that your Flask route matches this exact path and method (POST).';
                             }
                             resolve({ ok: false, entry: entry });
                         }

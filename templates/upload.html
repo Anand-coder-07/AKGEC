@@ -130,6 +130,38 @@
         .file-row.is-success .file-row-status { color: #3fb950; }
         .file-row.is-error .file-row-status { color: #f85149; }
         .file-row.is-invalid .file-row-status { color: #f85149; }
+        .file-row-error-detail {
+            margin-top: 0.3rem;
+            font-size: 0.72rem;
+            color: rgba(248, 81, 73, 0.85);
+            font-weight: 400;
+            word-break: break-word;
+            max-height: 4.5em;
+            overflow-y: auto;
+            background: rgba(248, 81, 73, 0.06);
+            border-radius: 6px;
+            padding: 0.4rem 0.5rem;
+            display: none;
+        }
+        .file-row.is-error .file-row-error-detail { display: block; }
+        .file-row-retry-btn {
+            margin-top: 0.6rem;
+            padding: 0.4rem 0.9rem;
+            border-radius: 8px;
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid rgba(248, 81, 73, 0.4);
+            color: #f85149;
+            font-weight: 600;
+            font-size: var(--text-xs);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            gap: 0.35rem;
+            transition: var(--transition);
+        }
+        .file-row.is-error .file-row-retry-btn { display: inline-flex; }
+        .file-row-retry-btn:hover { background: rgba(248, 81, 73, 0.2); }
+        .file-row-retry-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .apply-all-row {
             display: flex;
             align-items: center;
@@ -301,6 +333,15 @@
         =========================================================== */
         (function () {
             const ADMIN_UPLOAD_ENDPOINT = '/admin/upload';
+            // If your server (Express body-size limit / Multer fileSize / Nginx
+            // client_max_body_size) allows larger uploads, raise this to match.
+            // Files over this size are flagged before they're ever sent, instead
+            // of silently failing partway through with a confusing error.
+            const MAX_FILE_SIZE_MB = 50;
+            // How long to wait for a single file before giving up and marking it
+            // failed. Large PDFs on slow connections need real headroom.
+            const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+            let lastAdminKey = '';
             const YEAR_OPTIONS = [
                 { value: '1st_year', label: '1st Year' },
                 { value: '2nd_year', label: '2nd Year' },
@@ -444,13 +485,21 @@
                 progress.appendChild(progressBar);
                 const status = document.createElement('div');
                 status.className = 'file-row-status';
+                const errorDetail = document.createElement('div');
+                errorDetail.className = 'file-row-error-detail';
+                const retryBtn = document.createElement('button');
+                retryBtn.type = 'button';
+                retryBtn.className = 'file-row-retry-btn';
+                retryBtn.innerHTML = '<ion-icon name="refresh-outline"></ion-icon> Retry this file';
                 row.appendChild(main);
                 row.appendChild(fields);
                 row.appendChild(progress);
                 row.appendChild(status);
+                row.appendChild(errorDetail);
+                row.appendChild(retryBtn);
                 return {
                     row: row,
-                    els: { yearSel: yearSel, typeSel: typeSel, sessionSel: sessionSel, semSel: semSel, progressBar: progressBar, status: status }
+                    els: { yearSel: yearSel, typeSel: typeSel, sessionSel: sessionSel, semSel: semSel, progressBar: progressBar, status: status, errorDetail: errorDetail, retryBtn: retryBtn }
                 };
             }
             function updateSummary() {
@@ -472,7 +521,21 @@
                 Array.from(fileList).forEach(function (file) {
                     const id = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
                     const built = createFileRow(id, file);
-                    fileEntries.push({ id: id, file: file, els: built.els, row: built.row });
+                    const entry = { id: id, file: file, els: built.els, row: built.row };
+                    built.els.retryBtn.addEventListener('click', function () {
+                        const adminKey = (lastAdminKey || adminKeyInput.value.trim());
+                        if (!adminKey) {
+                            adminKeyInput.focus();
+                            uploadStatus.textContent = 'Enter the admin passcode before retrying.';
+                            uploadStatus.className = 'status-msg error';
+                            return;
+                        }
+                        built.els.retryBtn.disabled = true;
+                        uploadOne(entry, adminKey).finally(function () {
+                            built.els.retryBtn.disabled = false;
+                        });
+                    });
+                    fileEntries.push(entry);
                     selectedFilesEl.appendChild(built.row);
                 });
                 updateSummary();
@@ -520,19 +583,54 @@
                     entry.els.status.textContent = '';
                 });
             });
+            /* Pull a short, human-readable message out of whatever the server sent
+               back. Servers vary: some return JSON ({error: "..."}), some return
+               plain text, some (Nginx, a proxy, a framework's default handler)
+               return a full HTML error page. We don't want to dump raw HTML into
+               the UI, so we detect that case and summarize it instead. */
+            function extractServerMessage(xhr) {
+                const raw = (xhr.responseText || '').trim();
+                if (!raw) return '';
+                const ct = (xhr.getResponseHeader('Content-Type') || '').toLowerCase();
+                if (ct.indexOf('application/json') !== -1) {
+                    try {
+                        const parsed = JSON.parse(raw);
+                        return parsed.error || parsed.message || JSON.stringify(parsed).slice(0, 300);
+                    } catch (e) { /* fall through */ }
+                }
+                if (ct.indexOf('text/html') !== -1 || /^\s*<!DOCTYPE|^\s*<html/i.test(raw)) {
+                    const titleMatch = raw.match(/<title>([^<]*)<\/title>/i);
+                    return titleMatch
+                        ? 'Server returned an HTML error page: "' + titleMatch[1].trim() + '"'
+                        : 'Server returned an HTML error page instead of a JSON response — check your server/proxy logs.';
+                }
+                return raw.slice(0, 300);
+            }
             /* ---- Upload one file, tracked via XHR for progress ---- */
             function uploadOne(entry, adminKey) {
                 return new Promise(function (resolve) {
                     const els = entry.els;
+                    els.errorDetail.textContent = '';
                     if (!els.yearSel.value || !els.typeSel.value || !els.sessionSel.value || !els.semSel.value) {
                         entry.row.classList.add('is-invalid');
                         els.status.textContent = 'Missing category — please complete all fields for this file.';
                         resolve({ ok: false, entry: entry });
                         return;
                     }
-                    entry.row.classList.remove('is-invalid');
+                    if (entry.file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+                        entry.row.classList.remove('is-invalid');
+                        entry.row.classList.add('is-error');
+                        els.status.textContent = 'File too large — skipped.';
+                        els.errorDetail.textContent = 'This file is ' + formatSize(entry.file.size) +
+                            ', which is over the ' + MAX_FILE_SIZE_MB + ' MB limit set in this page. ' +
+                            'Increase MAX_FILE_SIZE_MB in the script (and your server/Nginx upload-size limits) if this file should be allowed.';
+                        resolve({ ok: false, entry: entry });
+                        return;
+                    }
+                    entry.row.classList.remove('is-invalid', 'is-error', 'is-success');
                     entry.row.classList.add('is-uploading');
                     els.status.textContent = 'Uploading…';
+                    els.progressBar.style.width = '0%';
                     const formData = new FormData();
                     formData.append('file', entry.file);
                     formData.append('year', els.yearSel.value);
@@ -542,9 +640,10 @@
                     formData.append('admin_key', adminKey);
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', ADMIN_UPLOAD_ENDPOINT, true);
+                    xhr.timeout = UPLOAD_TIMEOUT_MS;
                     xhr.upload.addEventListener('progress', function (e) {
                         if (e.lengthComputable) {
-                            const pct = Math.round((e.loaded / e.total) * 100); 
+                            const pct = Math.round((e.loaded / e.total) * 100);
                             els.progressBar.style.width = pct + '%';
                         }
                     });
@@ -556,14 +655,29 @@
                             resolve({ ok: true, entry: entry });
                         } else {
                             entry.row.classList.add('is-error');
-                            els.status.textContent = 'Upload failed (' + xhr.status + '). Please retry.';
+                            els.status.textContent = 'Upload failed (HTTP ' + xhr.status + ').';
+                            const msg = extractServerMessage(xhr);
+                            if (msg) els.errorDetail.textContent = msg;
+                            else if (xhr.status === 404) {
+                                els.errorDetail.textContent = 'Server returned 404 — the route "' + ADMIN_UPLOAD_ENDPOINT +
+                                    '" was not found. Check that your Express route matches this exact path and method (POST).';
+                            }
                             resolve({ ok: false, entry: entry });
                         }
+                    };
+                    xhr.ontimeout = function () {
+                        entry.row.classList.remove('is-uploading');
+                        entry.row.classList.add('is-error');
+                        els.status.textContent = 'Timed out — upload took too long.';
+                        els.errorDetail.textContent = 'No response after ' + Math.round(UPLOAD_TIMEOUT_MS / 60000) +
+                            ' minute(s). The file may be too large for your connection, or the server is hanging.';
+                        resolve({ ok: false, entry: entry });
                     };
                     xhr.onerror = function () {
                         entry.row.classList.remove('is-uploading');
                         entry.row.classList.add('is-error');
                         els.status.textContent = 'Network error — upload failed.';
+                        els.errorDetail.textContent = 'The connection was interrupted. This can happen when a file exceeds your server or reverse-proxy\'s upload size limit and it closes the connection instead of responding normally.';
                         resolve({ ok: false, entry: entry });
                     };
                     xhr.send(formData);
@@ -585,6 +699,7 @@
                     adminKeyInput.focus();
                     return;
                 }
+                lastAdminKey = adminKey;
                 uploadBtn.disabled = true;
                 summaryBar.style.display = 'flex';
                 summaryBar.textContent = 'Uploading 0 / ' + fileEntries.length + '…';

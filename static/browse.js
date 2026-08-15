@@ -16,59 +16,42 @@ document.addEventListener('DOMContentLoaded', () => {
         { val: '2021-22', label: '2021-22' }
     ];
 
-    const branches = [
-        { val: 'cse', label: 'CSE' },
-        { val: 'cse_aiml', label: 'CSE (AI & ML)' },
-        { val: 'cse_ds', label: 'CSE (Data Science)' },
-        { val: 'cs', label: 'Computer Science' },
-        { val: 'cse_hindi', label: 'CSE (Hindi)' },
-        { val: 'aiml', label: 'AI & Machine Learning' },
-        { val: 'it', label: 'Information Technology' },
-        { val: 'csit', label: 'CS & IT' },
-        { val: 'ece', label: 'ECE' },
-        { val: 'me', label: 'Mechanical' },
-        { val: 'eee', label: 'Electrical & Electronics' },
-        { val: 'ce', label: 'Civil' }
-    ];
-
-    const branchIcons = {
-        'cse': { icon: 'laptop-outline', color: '#d4a017' },
-        'cse_aiml': { icon: 'sparkles-outline', color: '#c0392b' },
-        'cse_ds': { icon: 'analytics-outline', color: '#e8c547' },
-        'cs': { icon: 'desktop-outline', color: '#d4a017' },
-        'cse_hindi': { icon: 'language-outline', color: '#c0392b' },
-        'aiml': { icon: 'bulb-outline', color: '#e8c547' },
-        'it': { icon: 'globe-outline', color: '#d4a017' },
-        'csit': { icon: 'code-slash-outline', color: '#c0392b' },
-        'ece': { icon: 'radio-outline', color: '#e8c547' },
-        'me': { icon: 'cog-outline', color: '#d4a017' },
-        'eee': { icon: 'flash-outline', color: '#c0392b' },
-        'ce': { icon: 'business-outline', color: '#e8c547' }
-    };
-
-    // Paper types only (no notes — notes is now a top-level section)
     const typeMapping = [
         { val: 'st', label: 'ST Papers', icon: 'document-text', color: '#d4a017' },
         { val: 'put', label: 'PUT Papers', icon: 'school', color: '#c0392b' },
         { val: 'ut', label: 'UT Papers', icon: 'create', color: '#e8c547' }
     ];
 
-    // Full type list (used for breadcrumb labels)
     const allTypes = [
         ...typeMapping,
         { val: 'notes', label: 'Faculty Notes', icon: 'journal', color: '#8b1a1a' }
     ];
 
-    const yearLabels = { '1st_year': '1st Year', '2nd_year': '2nd Year', '3rd_year': '3rd Year', '4th_year': '4th Year' };
+    const yearLabels = {
+        '1st_year': '1st Year',
+        '2nd_year': '2nd Year',
+        '3rd_year': '3rd Year',
+        '4th_year': '4th Year'
+    };
 
-    // Track whether we are in Faculty Notes mode
     let isFacultyNotesMode = false;
     let fnSectionSelected = null;
     let path = [];
+
     const explorerView = document.getElementById('explorerView');
     const breadcrumb = document.getElementById('breadcrumb');
     const pageTitle = document.getElementById('pageTitle');
     const backBtn = document.getElementById('backBtn');
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
 
     if (backBtn) {
         backBtn.addEventListener('click', () => {
@@ -99,22 +82,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isFacultyNotesMode) {
             html += `<span class="crumb" data-level="1">Faculty Notes</span>`;
             if (fnSectionSelected) {
-                html += `<span class="crumb" data-level="2">${fnSectionSelected}</span>`;
+                html += `<span class="crumb" data-level="2">${escapeHtml(fnSectionSelected)}</span>`;
             }
         } else {
             for (let i = 0; i < path.length; i++) {
                 let label = path[i];
-                if (i === 0) label = getLabel(path[i], semMapping[year]);
+                if (i === 0) label = getLabel(path[i], semMapping[year] || []);
                 else if (i === 1) label = getLabel(path[i], allTypes);
                 else if (i === 2) label = path[i];
-                html += `<span class="crumb" data-level="${i + 1}">${label}</span>`;
+                html += `<span class="crumb" data-level="${i + 1}">${escapeHtml(label)}</span>`;
             }
         }
 
         breadcrumb.innerHTML = html;
         document.querySelectorAll('.crumb[data-level]').forEach(crumb => {
             crumb.addEventListener('click', () => {
-                const level = parseInt(crumb.getAttribute('data-level'));
+                const level = parseInt(crumb.getAttribute('data-level'), 10);
                 if (isFacultyNotesMode) {
                     if (level === 0) {
                         isFacultyNotesMode = false;
@@ -126,22 +109,43 @@ document.addEventListener('DOMContentLoaded', () => {
                         render();
                     }
                 } else {
-                    if (level < path.length) { path = path.slice(0, level); render(); }
+                    if (level < path.length) {
+                        path = path.slice(0, level);
+                        render();
+                    }
                 }
             });
         });
+
         const crumbs = document.querySelectorAll('.crumb');
-        if (crumbs.length > 0) crumbs[crumbs.length - 1].classList.add('active');
+        if (crumbs.length > 0) {
+            crumbs[crumbs.length - 1].classList.add('active');
+        }
     }
 
     function folderHTML(id, label, iconName, iconColor, index) {
         const s = iconColor ? `style="color:${iconColor};"` : '';
-        return `<div class="folder-item" data-id="${id}" style="--stagger:${index}"><ion-icon name="${iconName}" class="item-icon" ${s}></ion-icon><span class="item-name">${label}</span></div>`;
+        return `
+            <div class="folder-item" data-id="${escapeHtml(id)}" style="--stagger:${index}" role="button" tabindex="0">
+                <ion-icon name="${iconName}" class="item-icon" ${s}></ion-icon>
+                <span class="item-name">${escapeHtml(label)}</span>
+            </div>
+        `;
     }
 
     function attachFolderListeners() {
         document.querySelectorAll('.folder-item').forEach(item => {
-            item.addEventListener('click', () => { path.push(item.getAttribute('data-id')); render(); });
+            const clickHandler = () => {
+                path.push(item.getAttribute('data-id'));
+                render();
+            };
+            item.addEventListener('click', clickHandler);
+            item.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    clickHandler();
+                }
+            });
         });
     }
 
@@ -150,11 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
         explorerView.innerHTML = '';
 
         if (backBtn) {
-            if (isFacultyNotesMode && fnSectionSelected) {
-                backBtn.style.display = 'flex';
-            } else if (isFacultyNotesMode && !fnSectionSelected) {
-                backBtn.style.display = 'flex';
-            } else if (!isFacultyNotesMode && path.length > 0) {
+            if (isFacultyNotesMode || path.length > 0) {
                 backBtn.style.display = 'flex';
             } else {
                 backBtn.style.display = 'none';
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // --- Normal (Papers) Mode ---
         const depth = path.length;
 
-        // Level 0: Show semesters + Faculty Notes
+        // Level 0: Show semesters + Faculty Notes card
         if (depth === 0) {
             pageTitle.textContent = 'Select Category';
             const sems = semMapping[year] || [];
@@ -184,17 +184,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 explorerView.innerHTML += folderHTML(sem.val, sem.label, 'book-outline', '#d4a017', i);
             });
 
-            // Add Faculty Notes as a special card at the end
             const notesIdx = sems.length;
-            const notesCard = `<div class="folder-item faculty-notes-card" data-id="__faculty_notes__" style="--stagger:${notesIdx}">
-                <ion-icon name="journal-outline" class="item-icon" style="color:#8b1a1a;"></ion-icon>
-                <span class="item-name">Faculty Notes</span>
-            </div>`;
+            const notesCard = `
+                <div class="folder-item faculty-notes-card" data-id="__faculty_notes__" style="--stagger:${notesIdx}" role="button" tabindex="0">
+                    <ion-icon name="journal-outline" class="item-icon" style="color:#8b1a1a;"></ion-icon>
+                    <span class="item-name">Faculty Notes</span>
+                </div>
+            `;
             explorerView.innerHTML += notesCard;
 
-            // Attach listeners — special handling for Faculty Notes
             document.querySelectorAll('.folder-item').forEach(item => {
-                item.addEventListener('click', () => {
+                const clickHandler = () => {
                     const id = item.getAttribute('data-id');
                     if (id === '__faculty_notes__') {
                         isFacultyNotesMode = true;
@@ -203,10 +203,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         path.push(id);
                         render();
                     }
+                };
+                item.addEventListener('click', clickHandler);
+                item.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        clickHandler();
+                    }
                 });
             });
         }
-        // Level 1: Select paper type (ST / PUT / UT only, no notes)
+        // Level 1: Select paper type (ST / PUT / UT)
         else if (depth === 1) {
             pageTitle.textContent = 'Select Paper Type';
             typeMapping.forEach((t, i) => {
@@ -229,44 +236,67 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Fetch all sections (public — no admin key needed for browsing)
     async function fetchFacultySections() {
-        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading sections...</div>`;
+        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon><p>Loading sections...</p></div>`;
         try {
-            const res = await fetch(`/api/fn/sections?year=${year}`);
+            const res = await fetch(`/api/fn/sections?year=${encodeURIComponent(year)}`);
             const data = await res.json();
             if (!res.ok || data.error) {
-                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${data.error || 'Failed to load.'}</p></div>`;
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${escapeHtml(data.error || 'Failed to load sections.')}</p></div>`;
                 return;
             }
             const sections = data.sections || [];
             explorerView.innerHTML = '';
             if (sections.length === 0) {
-                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="folder-open-outline"></ion-icon><p>No sections available yet.</p></div>`;
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="folder-open-outline"></ion-icon><p>No sections available yet for ${yearLabels[year] || year}.</p></div>`;
                 return;
             }
             sections.forEach((s, i) => {
                 explorerView.innerHTML += folderHTML(s, s, 'folder-outline', '#d4a017', i);
             });
+
             document.querySelectorAll('.folder-item').forEach(item => {
-                item.addEventListener('click', () => {
+                const clickHandler = () => {
                     fnSectionSelected = item.getAttribute('data-id');
                     render();
+                };
+                item.addEventListener('click', clickHandler);
+                item.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        clickHandler();
+                    }
                 });
             });
         } catch (e) {
-            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Connection error.</p></div>`;
+            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Connection error. Please try again.</p></div>`;
         }
     }
 
-    // Fetch files inside a section (public)
+    function getFileIconDetails(fileName) {
+        const ext = (fileName.split('.').pop() || '').toLowerCase();
+        if (ext === 'pdf') {
+            return { icon: 'document-text', color: '#f85149' };
+        }
+        if (['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) {
+            return { icon: 'image', color: '#58a6ff' };
+        }
+        if (['doc', 'docx'].includes(ext)) {
+            return { icon: 'document-attach', color: '#2b7cd3' };
+        }
+        if (['ppt', 'pptx'].includes(ext)) {
+            return { icon: 'easel', color: '#e8c547' };
+        }
+        return { icon: 'document', color: '#d4a017' };
+    }
+
     async function fetchFacultyFiles(section) {
-        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading files...</div>`;
+        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon><p>Loading files...</p></div>`;
         try {
             const res = await fetch(`/api/fn/files/${encodeURIComponent(year)}/${encodeURIComponent(section)}`);
             const data = await res.json();
             if (!res.ok || data.error) {
-                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${data.error || 'Failed to load.'}</p></div>`;
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${escapeHtml(data.error || 'Failed to load files.')}</p></div>`;
                 return;
             }
             const files = data.files || [];
@@ -278,15 +308,19 @@ document.addEventListener('DOMContentLoaded', () => {
             files.forEach((fileObj, idx) => {
                 const fileName = fileObj.display_name;
                 const fileId = fileObj.id;
+                const iconDetails = getFileIconDetails(fileName);
+                const safeName = escapeHtml(fileName);
+                const encodedName = encodeURIComponent(fileName);
+
                 explorerView.innerHTML += `
                     <div class="file-card" style="--stagger:${idx}">
-                        <ion-icon name="document-text" class="item-icon" style="color:#f85149;"></ion-icon>
-                        <span class="item-name" title="${fileName}">${fileName}</span>
+                        <ion-icon name="${iconDetails.icon}" class="item-icon" style="color:${iconDetails.color};"></ion-icon>
+                        <span class="item-name" title="${safeName}">${safeName}</span>
                         <div class="file-actions">
-                            <a href="/view/${fileId}/${encodeURIComponent(fileName)}" target="_blank" class="file-btn btn-view">
+                            <a href="/view/${fileId}/${encodedName}" target="_blank" rel="noopener" class="file-btn btn-view">
                                 <ion-icon name="eye-outline"></ion-icon> View
                             </a>
-                            <a href="/download/${fileId}/${encodeURIComponent(fileName)}" class="file-btn btn-download">
+                            <a href="/download/${fileId}/${encodedName}" class="file-btn btn-download">
                                 <ion-icon name="download-outline"></ion-icon> Download
                             </a>
                         </div>
@@ -294,33 +328,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
         } catch (e) {
-            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Connection error.</p></div>`;
+            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Connection error. Please try again.</p></div>`;
         }
     }
 
     async function fetchFiles() {
-        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon>Loading files...</div>`;
-        let sem, type, session;
-
-        [sem, type, session] = path;
+        explorerView.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon><p>Loading files...</p></div>`;
+        const [sem, type, session] = path;
 
         try {
             const params = new URLSearchParams({ year, semester: sem, type, session });
-            // Note: branch parameter is omitted or empty
             const res = await fetch(`/api/files?${params}`);
             const data = await res.json();
 
-            // Check if the API returned an error
             if (!res.ok || data.error) {
                 const errMsg = data.error || `Server error (${res.status})`;
-                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${errMsg}</p></div>`;
+                explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>${escapeHtml(errMsg)}</p></div>`;
                 return;
             }
 
-            const files = data;
-
+            const files = Array.isArray(data) ? data : [];
             explorerView.innerHTML = '';
-            if (!files || files.length === 0) {
+            if (files.length === 0) {
                 explorerView.innerHTML = `<div class="empty-state"><ion-icon name="document-text-outline"></ion-icon><p>No papers uploaded here yet.</p></div>`;
                 return;
             }
@@ -328,21 +357,19 @@ document.addEventListener('DOMContentLoaded', () => {
             files.forEach((fileObj, idx) => {
                 const fileName = fileObj.name;
                 const fileId = fileObj.id;
-                const ext = fileName.split('.').pop().toLowerCase();
-                const isPDF = ext === 'pdf';
-                const isImage = ['png', 'jpg', 'jpeg', 'webp'].includes(ext);
-                let iconName = isPDF ? 'document-text' : (isImage ? 'image' : 'document');
-                let iconColor = isPDF ? '#f85149' : (isImage ? '#58a6ff' : '#d4a017');
+                const iconDetails = getFileIconDetails(fileName);
+                const safeName = escapeHtml(fileName);
+                const encodedName = encodeURIComponent(fileName);
 
                 explorerView.innerHTML += `
                     <div class="file-card" style="--stagger:${idx}">
-                        <ion-icon name="${iconName}" class="item-icon" style="color:${iconColor};"></ion-icon>
-                        <span class="item-name" title="${fileName}">${fileName}</span>
+                        <ion-icon name="${iconDetails.icon}" class="item-icon" style="color:${iconDetails.color};"></ion-icon>
+                        <span class="item-name" title="${safeName}">${safeName}</span>
                         <div class="file-actions">
-                            <a href="/view/${fileId}/${encodeURIComponent(fileName)}" target="_blank" class="file-btn btn-view">
+                            <a href="/view/${fileId}/${encodedName}" target="_blank" rel="noopener" class="file-btn btn-view">
                                 <ion-icon name="eye-outline"></ion-icon> View
                             </a>
-                            <a href="/download/${fileId}/${encodeURIComponent(fileName)}" class="file-btn btn-download">
+                            <a href="/download/${fileId}/${encodedName}" class="file-btn btn-download">
                                 <ion-icon name="download-outline"></ion-icon> Download
                             </a>
                         </div>
@@ -350,7 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
         } catch (e) {
-            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Error loading files.</p></div>`;
+            explorerView.innerHTML = `<div class="empty-state"><ion-icon name="alert-circle-outline" style="color:#f85149;"></ion-icon><p>Error loading files. Please try again.</p></div>`;
         }
     }
 

@@ -5,13 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="/static/favicon.png">
     <title>Admin Upload – AKGEC Space</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
-        rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-    <!-- Scoped styles for the per-file category rows. Kept inline here so this file
-         stays a drop-in replacement without requiring a style.css edit. -->
     <style>
         .selected-files {
             display: flex;
@@ -45,14 +42,14 @@
         .file-row-info { flex: 1; min-width: 0; }
         .file-row-name {
             font-weight: 600;
-            font-size: var(--text-sm);
+            font-size: var(--text-sm, 0.95rem);
             color: var(--text-primary);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
         .file-row-size {
-            font-size: var(--text-xs);
+            font-size: var(--text-xs, 0.8rem);
             color: var(--text-secondary);
         }
         .file-row-remove {
@@ -87,8 +84,8 @@
             background: var(--input-bg);
             border: 1px solid var(--card-border);
             color: var(--text-primary);
-            font-family: var(--font-body);
-            font-size: var(--text-xs);
+            font-family: inherit;
+            font-size: 0.85rem;
             font-weight: 500;
             outline: none;
             transition: var(--transition);
@@ -123,7 +120,7 @@
         .file-row.is-error .file-row-progress-bar { background: #f85149; }
         .file-row-status {
             margin-top: 0.5rem;
-            font-size: var(--text-xs);
+            font-size: 0.85rem;
             font-weight: 600;
             min-height: 1rem;
         }
@@ -132,7 +129,7 @@
         .file-row.is-invalid .file-row-status { color: #f85149; }
         .file-row-error-detail {
             margin-top: 0.3rem;
-            font-size: 0.72rem;
+            font-size: 0.78rem;
             color: rgba(248, 81, 73, 0.85);
             font-weight: 400;
             word-break: break-word;
@@ -152,7 +149,7 @@
             border: 1px solid rgba(248, 81, 73, 0.4);
             color: #f85149;
             font-weight: 600;
-            font-size: var(--text-xs);
+            font-size: 0.8rem;
             cursor: pointer;
             display: none;
             align-items: center;
@@ -168,10 +165,10 @@
             justify-content: space-between;
             flex-wrap: wrap;
             gap: 0.8rem;
-            margin-top: 0.5rem;
+            margin-top: 0.8rem;
         }
         .apply-all-row p {
-            font-size: var(--text-xs);
+            font-size: 0.9rem;
             color: var(--text-secondary);
             margin: 0;
         }
@@ -182,7 +179,7 @@
             border: 1px solid rgba(212, 165, 42, 0.24);
             color: var(--accent-secondary);
             font-weight: 600;
-            font-size: var(--text-xs);
+            font-size: 0.85rem;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
@@ -192,21 +189,25 @@
         .btn-secondary:hover, .btn-secondary:focus-visible {
             background: rgba(212, 165, 42, 0.16);
             border-color: var(--accent-secondary);
-            box-shadow: var(--shadow-gold);
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.15);
         }
         .empty-files-hint {
-            font-size: var(--text-xs);
-            color: var(--text-tertiary);
+            font-size: 0.88rem;
+            color: var(--text-secondary);
             text-align: center;
-            padding: 0.5rem;
+            padding: 1rem;
         }
         .summary-bar {
             display: flex;
             gap: 1.2rem;
             flex-wrap: wrap;
-            font-size: var(--text-xs);
+            font-size: 0.9rem;
             color: var(--text-secondary);
-            margin-top: 0.4rem;
+            margin-top: 0.8rem;
+            padding: 0.6rem 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 10px;
+            border: 1px solid var(--card-border);
         }
         .summary-bar strong { color: var(--accent-secondary); }
     </style>
@@ -223,9 +224,8 @@
     <main class="upload-page-container">
         <div class="glass-card upload-section">
             <h2><ion-icon name="cloud-upload-outline"></ion-icon> Upload Material</h2>
-            <p style="color:var(--text-secondary);font-size:var(--text-sm);margin-top:-0.8rem;margin-bottom:1.2rem;">
-                Add as many PDFs or images as you like — each file gets its own Year, Type, Session and
-                Semester before it's uploaded.
+            <p style="color:var(--text-secondary);font-size:0.95rem;margin-top:-0.8rem;margin-bottom:1.4rem;">
+                Add PDFs or images — each file gets categorized with Year, Type, Session, and Semester before uploading.
             </p>
             <form id="uploadForm">
                 <div class="dropdown-grid">
@@ -265,10 +265,9 @@
                             <option value="" disabled selected>Select Year First</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="grid-column: 1 / -1;">
                         <label for="adminKey">Admin Passcode <span style="color:#f85149;">*</span></label>
-                        <input type="password" id="adminKey" name="admin_key" required placeholder="Enter Secret Code"
-                            class="styled-input">
+                        <input type="password" id="adminKey" name="admin_key" required placeholder="Enter Admin Secret Passcode" class="styled-input">
                     </div>
                 </div>
                 <div class="file-drop-area" id="fileDropArea">
@@ -280,8 +279,8 @@
                             Browse Files
                         </span>
                     </p>
-                    <small>
-                        Supports PDF & Images
+                    <small style="color:var(--text-secondary);">
+                        Supports PDF & Images (PNG, JPG, WEBP)
                         <br>
                         Select multiple files at once — each one is categorized separately below
                     </small>
@@ -303,67 +302,64 @@
             </form>
             <div id="uploadStatus" class="status-msg"></div>
         </div>
+
         <!-- Faculty Notes Manager shortcut -->
         <div class="glass-card" style="margin-top:1.5rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.4rem 1.8rem;">
             <div>
-                <div style="font-size:1rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;">
+                <div style="font-size:1.05rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;">
                     <ion-icon name="journal-outline" style="color:#d4a017;font-size:1.3rem;"></ion-icon>
                     Faculty Notes Manager
                 </div>
-                <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">Create sections &amp; upload notes PDFs in one place.</div>
+                <div style="font-size:0.88rem;color:var(--text-secondary);margin-top:0.2rem;">Create custom subject sections & upload notes PDFs seamlessly.</div>
             </div>
-            <a href="/admin/faculty-notes" class="btn-primary" style="text-decoration:none;">
+            <a href="/admin/faculty-notes" class="btn-primary" style="text-decoration:none;margin-top:0;width:auto;padding:0.75rem 1.4rem;">
                 <span>Open Manager</span><ion-icon name="arrow-forward-outline"></ion-icon>
             </a>
         </div>
     </main>
+
     <script src="/static/particles.js"></script>
     <script>
-        /* ===========================================================
-           Multi-file categorized upload
-           - Each selected file gets its own Year / Type / Session /
-             Semester row, defaulting to the "global" selects.
-           - Uploads are sent one file at a time (each with its own
-             FormData) so a single failure doesn't block the rest.
-           IMPORTANT: this posts each file individually to POST
-           "/upload" as multipart/form-data with fields:
-           file, year, type, session, semester, admin_key
-           This must match the Flask route defined in app.py
-           (@app.route('/upload', methods=['POST'])). There is no
-           "/admin/upload" route on the backend — only "/admin"
-           (which just renders this page) and "/upload" (which
-           actually accepts the file). Posting to "/admin/upload"
-           will 404.
-        =========================================================== */
         (function () {
             const ADMIN_UPLOAD_ENDPOINT = '/upload';
-            // If your server (Express body-size limit / Multer fileSize / Nginx
-            // client_max_body_size) allows larger uploads, raise this to match.
-            // Files over this size are flagged before they're ever sent, instead
-            // of silently failing partway through with a confusing error.
             const MAX_FILE_SIZE_MB = 50;
-            // How long to wait for a single file before giving up and marking it
-            // failed. Large PDFs on slow connections need real headroom.
-            const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes
+            const UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
             let lastAdminKey = '';
+
             const YEAR_OPTIONS = [
                 { value: '1st_year', label: '1st Year' },
                 { value: '2nd_year', label: '2nd Year' },
                 { value: '3rd_year', label: '3rd Year' },
                 { value: '4th_year', label: '4th Year' }
             ];
+
             const TYPE_OPTIONS = [
                 { value: 'st', label: 'ST Papers' },
                 { value: 'put', label: 'PUT Papers' },
                 { value: 'ut', label: 'UT Papers' }
             ];
+
             const SESSION_OPTIONS = ['2025-26', '2024-25', '2023-24', '2022-23', '2021-22'];
+
             const SEM_BY_YEAR = {
-                '1st_year': ['1', '2'],
-                '2nd_year': ['3', '4'],
-                '3rd_year': ['5', '6'],
-                '4th_year': ['7', '8']
+                '1st_year': [
+                    { value: '1st_sem', label: '1st Semester' },
+                    { value: '2nd_sem', label: '2nd Semester' }
+                ],
+                '2nd_year': [
+                    { value: '3rd_sem', label: '3rd Semester' },
+                    { value: '4th_sem', label: '4th Semester' }
+                ],
+                '3rd_year': [
+                    { value: '5th_sem', label: '5th Semester' },
+                    { value: '6th_sem', label: '6th Semester' }
+                ],
+                '4th_year': [
+                    { value: '7th_sem', label: '7th Semester' },
+                    { value: '8th_sem', label: '8th Semester' }
+                ]
             };
+
             const yearSelect = document.getElementById('yearSelect');
             const typeSelect = document.getElementById('typeSelect');
             const sessionSelect = document.getElementById('sessionSelect');
@@ -380,8 +376,9 @@
             const uploadBtnLabel = document.getElementById('uploadBtnLabel');
             const uploadStatus = document.getElementById('uploadStatus');
             const summaryBar = document.getElementById('summaryBar');
-            let fileEntries = []; // { id, file, els }
-            /* ---- Global "default" semester dropdown follows global year ---- */
+
+            let fileEntries = [];
+
             function populateSemesterSelect(selectEl, year, keepValue) {
                 const prev = keepValue !== undefined ? keepValue : selectEl.value;
                 selectEl.innerHTML = '';
@@ -395,26 +392,32 @@
                     selectEl.appendChild(opt);
                     return;
                 }
+
                 selectEl.disabled = false;
                 const placeholder = document.createElement('option');
                 placeholder.value = '';
                 placeholder.disabled = true;
                 placeholder.textContent = 'Select Sem';
                 selectEl.appendChild(placeholder);
+
                 let matched = false;
-                SEM_BY_YEAR[year].forEach(function (s) {
+                SEM_BY_YEAR[year].forEach(function (item) {
                     const opt = document.createElement('option');
-                    opt.value = s;
-                    opt.textContent = 'Semester ' + s;
-                    if (s === prev) { opt.selected = true; matched = true; }
+                    opt.value = item.value;
+                    opt.textContent = item.label;
+                    if (item.value === prev) {
+                        opt.selected = true;
+                        matched = true;
+                    }
                     selectEl.appendChild(opt);
                 });
                 if (!matched) placeholder.selected = true;
             }
+
             yearSelect.addEventListener('change', function () {
                 populateSemesterSelect(semSelect, yearSelect.value);
             });
-            /* ---- Helpers to build a <select> for a per-file row ---- */
+
             function buildSelect(cls, options, placeholder, currentValue) {
                 const sel = document.createElement('select');
                 sel.className = 'mini-select ' + cls;
@@ -423,109 +426,157 @@
                 ph.disabled = true;
                 ph.textContent = placeholder;
                 sel.appendChild(ph);
+
                 let matched = false;
                 options.forEach(function (o) {
                     const opt = document.createElement('option');
-                    if (typeof o === 'string') { opt.value = o; opt.textContent = o; }
-                    else { opt.value = o.value; opt.textContent = o.label; }
-                    if (opt.value === currentValue) { opt.selected = true; matched = true; }
+                    if (typeof o === 'string') {
+                        opt.value = o;
+                        opt.textContent = o;
+                    } else {
+                        opt.value = o.value;
+                        opt.textContent = o.label;
+                    }
+                    if (opt.value === currentValue) {
+                        opt.selected = true;
+                        matched = true;
+                    }
                     sel.appendChild(opt);
                 });
                 if (!matched) ph.selected = true;
                 return sel;
             }
+
             function formatSize(bytes) {
                 if (bytes < 1024) return bytes + ' B';
                 if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
                 return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
             }
+
             function createFileRow(id, file) {
                 const row = document.createElement('div');
                 row.className = 'file-row';
                 row.dataset.fileId = id;
+
                 const main = document.createElement('div');
                 main.className = 'file-row-main';
+
                 const icon = document.createElement('ion-icon');
                 icon.setAttribute('name', file.type.indexOf('image') === 0 ? 'image-outline' : 'document-text-outline');
                 icon.className = 'file-row-icon';
+
                 const info = document.createElement('div');
                 info.className = 'file-row-info';
+
                 const name = document.createElement('div');
                 name.className = 'file-row-name';
                 name.textContent = file.name;
+
                 const size = document.createElement('div');
                 size.className = 'file-row-size';
                 size.textContent = formatSize(file.size);
+
                 info.appendChild(name);
                 info.appendChild(size);
+
                 const removeBtn = document.createElement('button');
                 removeBtn.type = 'button';
                 removeBtn.className = 'file-row-remove';
                 removeBtn.setAttribute('aria-label', 'Remove ' + file.name);
                 removeBtn.innerHTML = '<ion-icon name="close-outline"></ion-icon>';
                 removeBtn.addEventListener('click', function () { removeFile(id); });
+
                 main.appendChild(icon);
                 main.appendChild(info);
                 main.appendChild(removeBtn);
+
                 const fields = document.createElement('div');
                 fields.className = 'file-row-fields';
+
                 const yearSel = buildSelect('f-year', YEAR_OPTIONS, 'Year', yearSelect.value);
                 const typeSel = buildSelect('f-type', TYPE_OPTIONS, 'Type', typeSelect.value);
                 const sessionSel = buildSelect('f-session', SESSION_OPTIONS, 'Session', sessionSelect.value);
                 const semSel = buildSelect('f-sem', [], 'Semester', '');
-                function refreshSem(keep) { populateSemesterSelect(semSel, yearSel.value, keep); }
+
+                function refreshSem(keep) {
+                    populateSemesterSelect(semSel, yearSel.value, keep);
+                }
+
                 yearSel.addEventListener('change', function () {
                     refreshSem();
                 });
+
                 refreshSem(semSelect.value);
+
                 fields.appendChild(yearSel);
                 fields.appendChild(typeSel);
                 fields.appendChild(sessionSel);
                 fields.appendChild(semSel);
+
                 const progress = document.createElement('div');
                 progress.className = 'file-row-progress';
+
                 const progressBar = document.createElement('div');
                 progressBar.className = 'file-row-progress-bar';
                 progress.appendChild(progressBar);
+
                 const status = document.createElement('div');
                 status.className = 'file-row-status';
+
                 const errorDetail = document.createElement('div');
                 errorDetail.className = 'file-row-error-detail';
+
                 const retryBtn = document.createElement('button');
                 retryBtn.type = 'button';
                 retryBtn.className = 'file-row-retry-btn';
                 retryBtn.innerHTML = '<ion-icon name="refresh-outline"></ion-icon> Retry this file';
+
                 row.appendChild(main);
                 row.appendChild(fields);
                 row.appendChild(progress);
                 row.appendChild(status);
                 row.appendChild(errorDetail);
                 row.appendChild(retryBtn);
+
                 return {
                     row: row,
-                    els: { yearSel: yearSel, typeSel: typeSel, sessionSel: sessionSel, semSel: semSel, progressBar: progressBar, status: status, errorDetail: errorDetail, retryBtn: retryBtn }
+                    els: {
+                        yearSel: yearSel,
+                        typeSel: typeSel,
+                        sessionSel: sessionSel,
+                        semSel: semSel,
+                        progressBar: progressBar,
+                        status: status,
+                        errorDetail: errorDetail,
+                        retryBtn: retryBtn
+                    }
                 };
             }
+
             function updateSummary() {
                 fileCountLabel.textContent = fileEntries.length
                     ? fileEntries.length + ' file' + (fileEntries.length > 1 ? 's' : '') + ' selected'
                     : 'No files selected yet';
+
                 selectedFilesEl.querySelectorAll('.empty-files-hint').forEach(function (n) { n.remove(); });
                 if (!fileEntries.length) {
                     const hint = document.createElement('p');
                     hint.className = 'empty-files-hint';
-                    hint.textContent = 'Selected files will appear here, each with its own category fields.';
+                    hint.textContent = 'Selected files will appear here, each with its own category dropdowns.';
                     selectedFilesEl.appendChild(hint);
                 }
+
                 uploadBtnLabel.textContent = fileEntries.length > 1
                     ? 'Upload ' + fileEntries.length + ' Files'
                     : 'Upload Selected Files';
             }
+
             function addFiles(fileList) {
                 Array.from(fileList).forEach(function (file) {
                     const id = 'f_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
                     const built = createFileRow(id, file);
                     const entry = { id: id, file: file, els: built.els, row: built.row };
+
                     built.els.retryBtn.addEventListener('click', function () {
                         const adminKey = (lastAdminKey || adminKeyInput.value.trim());
                         if (!adminKey) {
@@ -539,59 +590,64 @@
                             built.els.retryBtn.disabled = false;
                         });
                     });
+
                     fileEntries.push(entry);
                     selectedFilesEl.appendChild(built.row);
                 });
                 updateSummary();
             }
+
             function removeFile(id) {
                 fileEntries = fileEntries.filter(function (e) { return e.id !== id; });
                 const row = selectedFilesEl.querySelector('[data-file-id="' + id + '"]');
                 if (row) row.remove();
                 updateSummary();
             }
+
             updateSummary();
-            /* ---- File selection: browse + drag & drop ---- */
+
             browseFiles.addEventListener('click', function () { fileInput.click(); });
             fileDropArea.addEventListener('click', function (e) {
                 if (e.target === browseFiles) return;
                 fileInput.click();
             });
+
             fileInput.addEventListener('change', function () {
                 if (fileInput.files.length) addFiles(fileInput.files);
                 fileInput.value = '';
             });
+
             ['dragenter', 'dragover'].forEach(function (evt) {
                 fileDropArea.addEventListener(evt, function (e) {
                     e.preventDefault();
                     fileDropArea.classList.add('dragover');
                 });
             });
+
             ['dragleave', 'drop'].forEach(function (evt) {
                 fileDropArea.addEventListener(evt, function (e) {
                     e.preventDefault();
                     fileDropArea.classList.remove('dragover');
                 });
             });
+
             fileDropArea.addEventListener('drop', function (e) {
-                if (e.dataTransfer && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+                if (e.dataTransfer && e.dataTransfer.files.length) {
+                    addFiles(e.dataTransfer.files);
+                }
             });
-            /* ---- Apply global defaults to every file row ---- */
+
             applyAllBtn.addEventListener('click', function () {
                 fileEntries.forEach(function (entry) {
-                    entry.els.yearSel.value = yearSelect.value;
-                    entry.els.typeSel.value = typeSelect.value;
-                    entry.els.sessionSel.value = sessionSelect.value;
+                    if (yearSelect.value) entry.els.yearSel.value = yearSelect.value;
+                    if (typeSelect.value) entry.els.typeSel.value = typeSelect.value;
+                    if (sessionSelect.value) entry.els.sessionSel.value = sessionSelect.value;
                     populateSemesterSelect(entry.els.semSel, yearSelect.value, semSelect.value);
                     entry.row.classList.remove('is-invalid');
                     entry.els.status.textContent = '';
                 });
             });
-            /* Pull a short, human-readable message out of whatever the server sent
-               back. Servers vary: some return JSON ({error: "..."}), some return
-               plain text, some (Nginx, a proxy, a framework's default handler)
-               return a full HTML error page. We don't want to dump raw HTML into
-               the UI, so we detect that case and summarize it instead. */
+
             function extractServerMessage(xhr) {
                 const raw = (xhr.responseText || '').trim();
                 if (!raw) return '';
@@ -600,41 +656,38 @@
                     try {
                         const parsed = JSON.parse(raw);
                         return parsed.error || parsed.message || JSON.stringify(parsed).slice(0, 300);
-                    } catch (e) { /* fall through */ }
-                }
-                if (ct.indexOf('text/html') !== -1 || /^\s*<!DOCTYPE|^\s*<html/i.test(raw)) {
-                    const titleMatch = raw.match(/<title>([^<]*)<\/title>/i);
-                    return titleMatch
-                        ? 'Server returned an HTML error page: "' + titleMatch[1].trim() + '"'
-                        : 'Server returned an HTML error page instead of a JSON response — check your server/proxy logs.';
+                    } catch (e) { }
                 }
                 return raw.slice(0, 300);
             }
-            /* ---- Upload one file, tracked via XHR for progress ---- */
+
             function uploadOne(entry, adminKey) {
                 return new Promise(function (resolve) {
                     const els = entry.els;
                     els.errorDetail.textContent = '';
+
                     if (!els.yearSel.value || !els.typeSel.value || !els.sessionSel.value || !els.semSel.value) {
                         entry.row.classList.add('is-invalid');
                         els.status.textContent = 'Missing category — please complete all fields for this file.';
                         resolve({ ok: false, entry: entry });
                         return;
                     }
+
                     if (entry.file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
                         entry.row.classList.remove('is-invalid');
                         entry.row.classList.add('is-error');
                         els.status.textContent = 'File too large — skipped.';
                         els.errorDetail.textContent = 'This file is ' + formatSize(entry.file.size) +
-                            ', which is over the ' + MAX_FILE_SIZE_MB + ' MB limit set in this page. ' +
-                            'Increase MAX_FILE_SIZE_MB in the script (and your server/Nginx upload-size limits) if this file should be allowed.';
+                            ', which exceeds the ' + MAX_FILE_SIZE_MB + ' MB limit.';
                         resolve({ ok: false, entry: entry });
                         return;
                     }
+
                     entry.row.classList.remove('is-invalid', 'is-error', 'is-success');
                     entry.row.classList.add('is-uploading');
                     els.status.textContent = 'Uploading…';
                     els.progressBar.style.width = '0%';
+
                     const formData = new FormData();
                     formData.append('file', entry.file);
                     formData.append('year', els.yearSel.value);
@@ -642,60 +695,64 @@
                     formData.append('session', els.sessionSel.value);
                     formData.append('semester', els.semSel.value);
                     formData.append('admin_key', adminKey);
+
                     const xhr = new XMLHttpRequest();
                     xhr.open('POST', ADMIN_UPLOAD_ENDPOINT, true);
                     xhr.timeout = UPLOAD_TIMEOUT_MS;
+
                     xhr.upload.addEventListener('progress', function (e) {
                         if (e.lengthComputable) {
                             const pct = Math.round((e.loaded / e.total) * 100);
                             els.progressBar.style.width = pct + '%';
                         }
                     });
+
                     xhr.onload = function () {
                         entry.row.classList.remove('is-uploading');
                         if (xhr.status >= 200 && xhr.status < 300) {
                             entry.row.classList.add('is-success');
-                            els.status.textContent = 'Uploaded successfully.';
+                            els.status.textContent = 'Uploaded successfully. 🚀';
                             resolve({ ok: true, entry: entry });
                         } else {
                             entry.row.classList.add('is-error');
                             els.status.textContent = 'Upload failed (HTTP ' + xhr.status + ').';
                             const msg = extractServerMessage(xhr);
                             if (msg) els.errorDetail.textContent = msg;
-                            else if (xhr.status === 404) {
-                                els.errorDetail.textContent = 'Server returned 404 — the route "' + ADMIN_UPLOAD_ENDPOINT +
-                                    '" was not found. Check that your Flask route matches this exact path and method (POST).';
-                            }
                             resolve({ ok: false, entry: entry });
                         }
                     };
+
                     xhr.ontimeout = function () {
                         entry.row.classList.remove('is-uploading');
                         entry.row.classList.add('is-error');
                         els.status.textContent = 'Timed out — upload took too long.';
-                        els.errorDetail.textContent = 'No response after ' + Math.round(UPLOAD_TIMEOUT_MS / 60000) +
-                            ' minute(s). The file may be too large for your connection, or the server is hanging.';
+                        els.errorDetail.textContent = 'No response after ' + Math.round(UPLOAD_TIMEOUT_MS / 60000) + ' minutes.';
                         resolve({ ok: false, entry: entry });
                     };
+
                     xhr.onerror = function () {
                         entry.row.classList.remove('is-uploading');
                         entry.row.classList.add('is-error');
                         els.status.textContent = 'Network error — upload failed.';
-                        els.errorDetail.textContent = 'The connection was interrupted. This can happen when a file exceeds your server or reverse-proxy\'s upload size limit and it closes the connection instead of responding normally.';
+                        els.errorDetail.textContent = 'The connection was interrupted. Check your network or file size.';
                         resolve({ ok: false, entry: entry });
                     };
+
                     xhr.send(formData);
                 });
             }
+
             uploadForm.addEventListener('submit', function (e) {
                 e.preventDefault();
                 uploadStatus.textContent = '';
                 uploadStatus.className = 'status-msg';
+
                 if (!fileEntries.length) {
                     uploadStatus.textContent = 'Please select at least one file to upload.';
                     uploadStatus.classList.add('error');
                     return;
                 }
+
                 const adminKey = adminKeyInput.value.trim();
                 if (!adminKey) {
                     uploadStatus.textContent = 'Admin passcode is required.';
@@ -703,12 +760,15 @@
                     adminKeyInput.focus();
                     return;
                 }
+
                 lastAdminKey = adminKey;
                 uploadBtn.disabled = true;
                 summaryBar.style.display = 'flex';
                 summaryBar.textContent = 'Uploading 0 / ' + fileEntries.length + '…';
+
                 let done = 0;
                 let failed = 0;
+
                 (async function () {
                     for (const entry of fileEntries) {
                         const result = await uploadOne(entry, adminKey);
@@ -717,16 +777,17 @@
                         summaryBar.textContent = 'Uploaded ' + (done - failed) + ' / ' + fileEntries.length +
                             (failed ? '  •  ' + failed + ' failed' : '');
                     }
+
                     uploadBtn.disabled = false;
                     if (failed === 0) {
-                        uploadStatus.textContent = 'All ' + fileEntries.length + ' file(s) uploaded successfully!';
+                        uploadStatus.textContent = 'All ' + fileEntries.length + ' file(s) uploaded successfully! 🚀';
                         uploadStatus.classList.add('success');
                     } else if (failed === fileEntries.length) {
                         uploadStatus.textContent = 'Upload failed for all files. Please check the errors above and retry.';
                         uploadStatus.classList.add('error');
                     } else {
                         uploadStatus.textContent = (fileEntries.length - failed) + ' of ' + fileEntries.length +
-                            ' files uploaded. Fix the failed rows above and submit again to retry those.';
+                            ' files uploaded. Fix the failed rows above and retry.';
                         uploadStatus.classList.add('error');
                     }
                 })();

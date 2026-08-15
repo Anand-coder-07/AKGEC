@@ -4,23 +4,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="theme-color" content="#0a080d">
     <link rel="icon" type="image/png" href="/static/favicon.png">
-    <link rel="apple-touch-icon" href="/static/favicon.png">
-    <link rel="canonical" href="https://akgec-space.onrender.com/">
-
-    <!-- Preconnect for faster font load -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=Outfit:wght@300;400;500;600;700;800&display=swap"
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 
     <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-
     <!-- Title - Google pe yahi dikhta hai -->
-    <title>AKGEC Space — Previous Year Papers &amp; Notes</title>
+    <title>AKGEC Space - Previous Year Papers & Notes</title>
 
     <!-- Description - Google search result mein description -->
     <meta name="description"
@@ -29,11 +21,8 @@
     <!-- Open Graph tags for correct Site Name on Google -->
     <meta property="og:site_name" content="AKGEC Space">
     <meta property="og:title" content="AKGEC Space - Previous Year Papers & Notes">
-    <meta property="og:description" content="All AKGEC papers and notes in one place.">
     <meta property="og:url" content="https://akgec-space.onrender.com/">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="https://akgec-space.onrender.com/static/akgec-logo.png">
-    <meta name="twitter:card" content="summary_large_image">
 
     <!-- Structured Data to force Google to show "AKGEC Space" instead of "Render" -->
     <script type="application/ld+json">
@@ -41,21 +30,24 @@
       "@context": "https://schema.org",
       "@type": "WebSite",
       "name": "AKGEC Space",
-      "url": "https://akgec-space.onrender.com/",
-      "description": "Previous year question papers, ST, PUT, UT and faculty notes for AKGEC students."
+      "url": "https://akgec-space.onrender.com/"
     }
     </script>
 
     <!-- Keywords (less important now but still good) -->
     <meta name="keywords" content="AKGEC, previous year papers, question papers, AKGEC notes, AKGEC PYQ">
+
+    <!-- Open Graph - WhatsApp/Facebook pe share karo toh preview aata hai -->
+    <meta property="og:title" content="AKGEC Space - Previous Year Papers">
+    <meta property="og:description" content="All AKGEC papers and notes in one place.">
+    <meta property="og:url" content="https://akgec-space.onrender.com">
+    <meta property="og:image" content="https://akgec-space.onrender.com/static/akgec-logo.png">
     <meta name="google-site-verification" content="Zc2E7ElQ2Qp8CheGPbzFBslufZMBTmlNP9k-eeOU4sg" />
 </head>
 
 <body>
-    <a href="#main-content" class="skip-link">Skip to content</a>
-
-    <canvas id="bgCanvas" class="bg-canvas" aria-hidden="true"></canvas>
-    <img src="/static/akgec-logo-transparent.png" class="bg-logo" alt="" aria-hidden="true" loading="lazy">
+    <canvas id="bgCanvas" class="bg-canvas"></canvas>
+    <img src="/static/akgec-logo-transparent.png" class="bg-logo" alt="Background Logo">
 
     <nav class="topbar">
         <a href="/" class="logo">
@@ -65,59 +57,55 @@
         <a href="/admin" class="nav-btn"><ion-icon name="lock-closed-outline"></ion-icon> Admin Upload</a>
     </nav>
 
-    <main class="landing-container" id="main-content">
+    <main class="landing-container">
         <header class="landing-hero">
-            <span class="hero-mark">
-                <img src="/static/akgec-logo.png" alt="AKGEC Space">
-            </span>
-            <span class="eyebrow">Chart your course through AKGEC</span>
+            <img src="/static/akgec-logo.png" alt="AKGEC">
             <h1>AKGEC Space</h1>
-            <p>Every previous year question paper, ST, PUT, UT and faculty note — mapped by year, ready when you need it.</p>
+            <p>Access previous year question papers – ST, PUT, UT & Faculty Notes – all in one place.</p>
         </header>
 
-        <section class="year-cards-grid" aria-label="Browse by year">
-            <a href="/browse/1st_year" class="year-card" style="--card-accent: #d4a52a;">
-                <div class="year-card-icon"><ion-icon name="school-outline" aria-hidden="true"></ion-icon></div>
+        <div class="year-cards-grid">
+            <a href="/browse/1st_year" class="year-card" style="--card-accent: #d4a017;">
+                <div class="year-card-icon"><ion-icon name="school-outline"></ion-icon></div>
                 <h2>1st Year</h2>
                 <p>Common syllabus for all branches</p>
-                <span class="card-arrow"><ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon></span>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
             </a>
-            <a href="/browse/2nd_year" class="year-card" style="--card-accent: #b53a46;">
-                <div class="year-card-icon"><ion-icon name="rocket-outline" aria-hidden="true"></ion-icon></div>
+            <a href="/browse/2nd_year" class="year-card" style="--card-accent: #c0392b;">
+                <div class="year-card-icon"><ion-icon name="rocket-outline"></ion-icon></div>
                 <h2>2nd Year</h2>
-                <p>Papers &amp; notes for all semesters</p>
-                <span class="card-arrow"><ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon></span>
+                <p>Papers & notes for all semesters</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
             </a>
-            <a href="/browse/3rd_year" class="year-card" style="--card-accent: #f0d98c;">
-                <div class="year-card-icon"><ion-icon name="flask-outline" aria-hidden="true"></ion-icon></div>
+            <a href="/browse/3rd_year" class="year-card" style="--card-accent: #e8c547;">
+                <div class="year-card-icon"><ion-icon name="flask-outline"></ion-icon></div>
                 <h2>3rd Year</h2>
-                <p>Papers &amp; notes for all semesters</p>
-                <span class="card-arrow"><ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon></span>
+                <p>Papers & notes for all semesters</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
             </a>
-            <a href="/browse/4th_year" class="year-card" style="--card-accent: #8a1c28;">
-                <div class="year-card-icon"><ion-icon name="trophy-outline" aria-hidden="true"></ion-icon></div>
+            <a href="/browse/4th_year" class="year-card" style="--card-accent: #8b1a1a;">
+                <div class="year-card-icon"><ion-icon name="trophy-outline"></ion-icon></div>
                 <h2>4th Year</h2>
-                <p>Papers &amp; notes for all semesters</p>
-                <span class="card-arrow"><ion-icon name="arrow-forward-outline" aria-hidden="true"></ion-icon></span>
+                <p>Papers & notes for all semesters</p>
+                <span class="card-arrow"><ion-icon name="arrow-forward-outline"></ion-icon></span>
             </a>
-        </section>
+        </div>
+
     </main>
 
-    <a href="https://www.instagram.com/akgec_space/" target="_blank" rel="noopener noreferrer" class="insta-float"
-        aria-label="Follow AKGEC Space on Instagram" title="Connect with us on Instagram">
-        <ion-icon name="logo-instagram" aria-hidden="true"></ion-icon>
+    <a href="https://www.instagram.com/akgec_space/" target="_blank" class="insta-float"
+        title="Connect with me on Instagram">
+        <ion-icon name="logo-instagram"></ion-icon>
     </a>
 
     <script src="/static/particles.js"></script>
-
     <footer class="main-footer">
         <p>
-            &copy; 2025–26 AKGEC Space. All Rights Reserved.
-            <span class="disclaimer">Disclaimer: AKGEC Space is an unofficial, student-run platform and is not affiliated with the official administration of Ajay Kumar Garg Engineering College.</span>
+            &copy; 2025-26 AKGEC Space. All Rights Reserved.
+            <span class="disclaimer">"Disclaimer: AKGEC Space is an unofficial, student-run platform and is not affiliated with the official administration of Ajay Kumar Garg Engineering College."</span>
         </p>
         <p class="credit">
-            Made with <ion-icon name="heart" class="heart-icon" aria-hidden="true"></ion-icon> by
-            <strong>Anand Singh</strong> and <strong>Sahil Bharti</strong>
+            Made with<ion-icon name="heart" class="heart-icon"></ion-icon> by <strong>Anand Singh</strong> and <strong> Sahil Bharti</strong>
         </p>
     </footer>
 </body>

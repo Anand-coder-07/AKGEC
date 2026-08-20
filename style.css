@@ -129,6 +129,32 @@ body {
     box-shadow: 0 8px 20px rgba(212, 175, 55, 0.1);
 }
 
+/* ---- Back Button ---- */
+.back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(212, 175, 55, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(212, 175, 55, 0.2);
+    color: var(--accent-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.back-btn:hover {
+    background: rgba(212, 175, 55, 0.15);
+    border-color: var(--accent-secondary);
+    transform: translateX(-4px);
+    box-shadow: 0 4px 15px rgba(212, 175, 55, 0.2);
+    color: var(--accent-light);
+}
+
+
 
 /* ---- Landing Page ---- */
 .landing-container {

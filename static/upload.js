@@ -21,56 +21,104 @@ document.addEventListener('DOMContentLoaded', () => {
     const uploadBtn = document.getElementById('uploadBtn');
     const statusMsg = document.getElementById('uploadStatus');
 
-    yearSelect.addEventListener('change', (e) => {
-        const year = e.target.value;
-        const sems = semMapping[year];
-        semSelect.innerHTML = '<option value="" disabled selected>Select Sem</option>';
-        sems.forEach(s => { semSelect.innerHTML += `<option value="${s.val}">${s.label}</option>`; });
-        semSelect.disabled = false;
+    if (!uploadForm) return;
 
-        branchGroup.style.display = 'none';
-        branchSelect.removeAttribute('required');
-        branchSelect.value = '';
-    });
+    if (yearSelect && semSelect) {
+        yearSelect.addEventListener('change', (e) => {
+            const year = e.target.value;
+            const sems = semMapping[year] || [];
+            semSelect.innerHTML = '<option value="" disabled selected>Select Sem</option>';
+            sems.forEach(s => { semSelect.innerHTML += `<option value="${s.val}">${s.label}</option>`; });
+            semSelect.disabled = false;
 
-    typeSelect.addEventListener('change', (e) => {
-        sessionGroup.style.display = 'flex';
-        semGroup.style.display = 'flex';
-        sessionSelect.setAttribute('required', 'required');
-        if (yearSelect.value) {
-            semSelect.setAttribute('required', 'required');
-        }
-    });
+            if (branchGroup) {
+                branchGroup.style.display = 'none';
+            }
+            if (branchSelect) {
+                branchSelect.removeAttribute('required');
+                branchSelect.value = '';
+            }
+        });
+    }
 
-    fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) { fileMsg.textContent = e.target.files[0].name; dropArea.style.borderColor = 'var(--accent-secondary)'; }
-        else { fileMsg.textContent = 'Drag & Drop or Click to choose file'; dropArea.style.borderColor = 'rgba(255,255,255,0.15)'; }
-    });
+    if (typeSelect && sessionGroup && sessionSelect && semGroup && semSelect) {
+        typeSelect.addEventListener('change', () => {
+            sessionGroup.style.display = 'flex';
+            semGroup.style.display = 'flex';
+            sessionSelect.setAttribute('required', 'required');
+            if (yearSelect && yearSelect.value) {
+                semSelect.setAttribute('required', 'required');
+            }
+        });
+    }
 
-    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }));
-    ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('dragover')));
-    ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('dragover')));
+    if (fileInput && fileMsg && dropArea) {
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                fileMsg.textContent = e.target.files[0].name;
+                dropArea.style.borderColor = 'var(--accent-secondary)';
+            } else {
+                fileMsg.textContent = 'Drag & Drop or Click to choose file';
+                dropArea.style.borderColor = 'rgba(255,255,255,0.15)';
+            }
+        });
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, ev => { ev.preventDefault(); ev.stopPropagation(); }));
+        ['dragenter', 'dragover'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.add('dragover')));
+        ['dragleave', 'drop'].forEach(e => dropArea.addEventListener(e, () => dropArea.classList.remove('dragover')));
+    }
 
     uploadForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(uploadForm);
-        uploadBtn.innerHTML = '<ion-icon name="sync-outline" class="spin"></ion-icon> <span>Uploading...</span>';
-        uploadBtn.disabled = true;
+        if (uploadBtn) {
+            uploadBtn.innerHTML = '<ion-icon name="sync-outline" class="spin"></ion-icon> <span>Uploading...</span>';
+            uploadBtn.disabled = true;
+        }
         try {
             const res = await fetch('/upload', { method: 'POST', body: formData });
-            const result = await res.json();
+            let result = {};
+            try {
+                result = await res.json();
+            } catch (_) {
+                result = { error: `Server response status: ${res.status}` };
+            }
             if (res.ok) {
-                statusMsg.textContent = 'Upload Successful! 🚀'; statusMsg.className = 'status-msg success';
-                uploadForm.reset(); semSelect.innerHTML = '<option value="" disabled selected>Select Sem</option>';
-                semSelect.disabled = true; branchGroup.style.display = 'none'; branchSelect.removeAttribute('required');
-                sessionGroup.style.display = 'flex'; semGroup.style.display = 'flex';
-                sessionSelect.setAttribute('required', 'required');
-                fileMsg.textContent = 'Drag & Drop or Click to choose file'; dropArea.style.borderColor = 'rgba(255,255,255,0.15)';
-            } else { statusMsg.textContent = result.error || 'Upload failed.'; statusMsg.className = 'status-msg error'; }
-        } catch (err) { statusMsg.textContent = 'Connection error.'; statusMsg.className = 'status-msg error'; }
-        finally {
-            uploadBtn.innerHTML = '<span>Upload Now</span><ion-icon name="arrow-forward-outline"></ion-icon>';
-            uploadBtn.disabled = false; setTimeout(() => { statusMsg.textContent = ''; }, 5000);
+                if (statusMsg) {
+                    statusMsg.textContent = 'Upload Successful! 🚀';
+                    statusMsg.className = 'status-msg success';
+                }
+                uploadForm.reset();
+                if (semSelect) {
+                    semSelect.innerHTML = '<option value="" disabled selected>Select Sem</option>';
+                    semSelect.disabled = true;
+                }
+                if (branchGroup) branchGroup.style.display = 'none';
+                if (branchSelect) branchSelect.removeAttribute('required');
+                if (sessionGroup) sessionGroup.style.display = 'flex';
+                if (semGroup) semGroup.style.display = 'flex';
+                if (sessionSelect) sessionSelect.setAttribute('required', 'required');
+                if (fileMsg) fileMsg.textContent = 'Drag & Drop or Click to choose file';
+                if (dropArea) dropArea.style.borderColor = 'rgba(255,255,255,0.15)';
+            } else {
+                if (statusMsg) {
+                    statusMsg.textContent = result.error || 'Upload failed.';
+                    statusMsg.className = 'status-msg error';
+                }
+            }
+        } catch (err) {
+            if (statusMsg) {
+                statusMsg.textContent = 'Connection error.';
+                statusMsg.className = 'status-msg error';
+            }
+        } finally {
+            if (uploadBtn) {
+                uploadBtn.innerHTML = '<span>Upload Now</span><ion-icon name="arrow-forward-outline"></ion-icon>';
+                uploadBtn.disabled = false;
+            }
+            if (statusMsg) {
+                setTimeout(() => { statusMsg.textContent = ''; }, 5000);
+            }
         }
     });
 });

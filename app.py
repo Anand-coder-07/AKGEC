@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import json
 import time
 import hmac
@@ -25,7 +26,7 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 DRIVE_FOLDER_ID = os.environ.get('GOOGLE_DRIVE_FOLDER_ID', '')
 ADMIN_KEY = os.environ.get('ADMIN_KEY', 'akgec_admin')
 
-FN_SECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'fn_sections.json')
+FN_SECTIONS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fn_sections.json')
 FN_YEARS = ['1st_year', '2nd_year', '3rd_year', '4th_year']
 FN_CONFIG_FILENAME = "config_fn_sections.json"
 
@@ -43,6 +44,30 @@ FN_CACHE_TTL = 60  # seconds
 
 # --- HELPER FUNCTIONS ---
 
+def get_oauth_credentials():
+    """Retrieve OAuth credentials from environment variables or oauth_tokens.json fallback."""
+    global DRIVE_FOLDER_ID
+    refresh_token = os.environ.get('GOOGLE_REFRESH_TOKEN')
+    client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+
+    if not refresh_token:
+        tokens_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'oauth_tokens.json')
+        if os.path.exists(tokens_file):
+            try:
+                with open(tokens_file, 'r', encoding='utf-8') as f:
+                    token_data = json.load(f)
+                    refresh_token = token_data.get('GOOGLE_REFRESH_TOKEN')
+                    client_id = client_id or token_data.get('GOOGLE_CLIENT_ID')
+                    client_secret = client_secret or token_data.get('GOOGLE_CLIENT_SECRET')
+                    if not DRIVE_FOLDER_ID:
+                        DRIVE_FOLDER_ID = token_data.get('GOOGLE_DRIVE_FOLDER_ID', '')
+            except Exception as ex:
+                print(f"[Auth] Warning reading oauth_tokens.json: {ex}")
+
+    return refresh_token, client_id, client_secret
+
+
 def is_allowed_file(filename):
     """Check if file extension is permitted."""
     if not filename or '.' not in filename:
@@ -53,10 +78,58 @@ def is_allowed_file(filename):
 
 def sanitize_filename(filename):
     """Return a safe filename while preserving readable alphanumeric & dot chars."""
+    if not filename:
+        return f"upload_{int(time.time())}.pdf"
     clean = secure_filename(filename)
     if not clean:
         clean = f"upload_{int(time.time())}.pdf"
     return clean
+
+
+def extract_clean_filename(raw_drive_name, known_sections=None):
+    """Extract original clean display filename from Drive metadata prefix."""
+    if not raw_drive_name:
+        return 'document.pdf'
+
+    # 1. Faculty notes format: fn_{year}_{section}_{display_name}
+    if raw_drive_name.startswith('fn_'):
+        remainder = raw_drive_name[3:]
+        for y in FN_YEARS:
+            if remainder.startswith(f'{y}_'):
+                after_year = remainder[len(y) + 1:]
+                # Check known sections if provided or load from cache
+                sections_map = known_sections
+                if sections_map is None:
+                    try:
+                        sections_map = load_fn_sections()
+                    except Exception:
+                        sections_map = None
+
+                if sections_map and y in sections_map:
+                    for sec in sorted(sections_map[y], key=len, reverse=True):
+                        sec_prefix = f'{sec}_'
+                        if after_year.startswith(sec_prefix):
+                            return after_year[len(sec_prefix):]
+
+                parts = after_year.split('_', 1)
+                return parts[1] if len(parts) > 1 else after_year
+        parts = remainder.split('_', 2)
+        return parts[-1] if len(parts) >= 3 else raw_drive_name
+
+    # 2. Regular papers format: {year}_{branch}_{sem}_{type}_{session}_{clean_name}
+    pattern = r'^(?:' + '|'.join(FN_YEARS) + r')_(?:[a-zA-Z0-9_]*?)_?(?:[1-8](?:st|nd|rd|th)_sem|[1-8]|none)_(?:st|put|ut|notes)_(?:[0-9]{4}-[0-9]{2}|none)_(.+)$'
+    m = re.match(pattern, raw_drive_name)
+    if m:
+        return m.group(1)
+
+    # Fallback: look for type and session pattern
+    for t in ['_st_', '_put_', '_ut_', '_notes_']:
+        if t in raw_drive_name:
+            after_type = raw_drive_name.split(t, 1)[1]
+            sess_parts = after_type.split('_', 1)
+            return sess_parts[1] if len(sess_parts) > 1 else after_type
+
+    return raw_drive_name
 
 
 def normalize_semester(sem):
@@ -90,15 +163,37 @@ def is_admin_authorized():
     return hmac.compare_digest(provided_key.strip(), ADMIN_KEY.strip())
 
 
+# --- ERROR HANDLERS ---
+
+@app.errorhandler(413)
+def request_entity_too_large(error):
+    """Handle payload too large cleanly for both API and form submissions."""
+    return jsonify({'error': 'File size exceeds maximum allowed limit (50 MB). Please upload a smaller file.'}), 413
+
+
+@app.errorhandler(404)
+def not_found(error):
+    """Handle 404 cleanly."""
+    if request.path.startswith('/api/') or request.path.startswith('/download/') or request.path.startswith('/view/'):
+        return jsonify({'error': 'Requested resource was not found.'}), 404
+    return render_template('index.html'), 404
+
+
+@app.errorhandler(500)
+def server_error(error):
+    """Handle 500 cleanly."""
+    if request.path.startswith('/api/'):
+        return jsonify({'error': 'Internal server error occurred.'}), 500
+    return jsonify({'error': 'Internal server error'}), 500
+
+
 # --- GOOGLE DRIVE SERVICE ---
 
 def get_drive_service():
     """Get an authenticated Google Drive service with thread-safe caching and auto-refresh."""
     global _cached_creds, _cached_service
 
-    refresh_token = os.environ.get('GOOGLE_REFRESH_TOKEN')
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
+    refresh_token, client_id, client_secret = get_oauth_credentials()
 
     if not refresh_token:
         return None
@@ -111,6 +206,7 @@ def get_drive_service():
             if _cached_creds.expired:
                 try:
                     _cached_creds.refresh(Request())
+                    _cached_service = build('drive', 'v3', credentials=_cached_creds, cache_discovery=False)
                     return _cached_service
                 except Exception as e:
                     error_msg = str(e)
@@ -153,13 +249,46 @@ def get_drive_service():
 # --- FACULTY NOTES SECTIONS STORAGE & CACHING ---
 
 def get_fn_config_file_id(service):
-    """Retrieve the Drive file ID for the faculty notes config file."""
+    """Retrieve the Drive file ID for the faculty notes config file, cleaning up duplicate files if any."""
     if not DRIVE_FOLDER_ID:
         return None
     query = f"'{escape_drive_query(DRIVE_FOLDER_ID)}' in parents and name = '{FN_CONFIG_FILENAME}' and trashed = false"
-    results = service.files().list(q=query, fields="files(id)", pageSize=1).execute()
+    results = service.files().list(q=query, fields="files(id)", pageSize=10).execute()
     files = results.get('files', [])
-    return files[0]['id'] if files else None
+    if not files:
+        return None
+    primary_id = files[0]['id']
+    if len(files) > 1:
+        for extra in files[1:]:
+            try:
+                service.files().delete(fileId=extra['id']).execute()
+            except Exception:
+                pass
+    return primary_id
+
+
+def discover_sections_from_drive(service):
+    """Scan Google Drive files to auto-recover sections if config file is missing."""
+    discovered = {y: set() for y in FN_YEARS}
+    try:
+        safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
+        query = f"'{safe_folder}' in parents and name contains 'fn_' and trashed = false"
+        results = service.files().list(q=query, fields="files(name)", pageSize=1000).execute()
+        for f in results.get('files', []):
+            name = f.get('name', '')
+            if name.startswith('fn_'):
+                rem = name[3:]
+                for y in FN_YEARS:
+                    if rem.startswith(f"{y}_"):
+                        after_year = rem[len(y) + 1:]
+                        if '_' in after_year:
+                            sec = after_year.split('_', 1)[0]
+                            if sec:
+                                discovered[y].add(sec)
+        return {y: sorted(list(discovered[y])) for y in FN_YEARS}
+    except Exception as e:
+        print(f"[FN Auto-Discovery] Warning: {e}")
+        return {y: [] for y in FN_YEARS}
 
 
 def invalidate_fn_cache():
@@ -170,7 +299,7 @@ def invalidate_fn_cache():
 
 
 def load_fn_sections():
-    """Load faculty notes sections with in-memory caching, Drive sync, and local fallback."""
+    """Load faculty notes sections with in-memory caching, Drive sync, local fallback, and auto-discovery."""
     now = time.time()
     with _fn_cache_lock:
         if _fn_cache['data'] is not None and (now - _fn_cache['timestamp'] < FN_CACHE_TTL):
@@ -178,7 +307,7 @@ def load_fn_sections():
 
     default = {y: [] for y in FN_YEARS}
 
-    # 1. Try Google Drive
+    # 1. Try Google Drive config file
     try:
         service = get_drive_service()
         if service and DRIVE_FOLDER_ID:
@@ -201,6 +330,7 @@ def load_fn_sections():
 
                 # Update local file sync
                 try:
+                    os.makedirs(os.path.dirname(os.path.abspath(FN_SECTIONS_FILE)), exist_ok=True)
                     with open(FN_SECTIONS_FILE, 'w', encoding='utf-8') as f:
                         json.dump({'sections': result}, f, indent=2)
                 except Exception as ex:
@@ -212,7 +342,7 @@ def load_fn_sections():
 
                 return {y: list(result[y]) for y in FN_YEARS}
     except Exception as e:
-        print(f"[FN Sync] Warning loading from Drive: {e}")
+        print(f"[FN Sync] Warning loading from Drive config: {e}")
 
     # 2. Fallback to local file
     if os.path.exists(FN_SECTIONS_FILE):
@@ -236,6 +366,17 @@ def load_fn_sections():
         except Exception as e:
             print(f"[FN Sync] Warning loading from local file: {e}")
 
+    # 3. Fallback: Auto-discover existing sections from Google Drive files
+    try:
+        service = get_drive_service()
+        if service and DRIVE_FOLDER_ID:
+            discovered = discover_sections_from_drive(service)
+            if any(discovered.values()):
+                save_fn_sections(discovered)
+                return discovered
+    except Exception as ex:
+        print(f"[FN Sync] Warning in auto-discovery: {ex}")
+
     return default
 
 
@@ -250,6 +391,7 @@ def save_fn_sections(sections):
 
     # Local save
     try:
+        os.makedirs(os.path.dirname(os.path.abspath(FN_SECTIONS_FILE)), exist_ok=True)
         with open(FN_SECTIONS_FILE, 'w', encoding='utf-8') as f:
             json.dump({'sections': clean_sections}, f, indent=2)
     except Exception as e:
@@ -383,6 +525,7 @@ def upload_file():
         clean_name = sanitize_filename(file.filename)
         drive_filename = f"{year}_{branch}_{semester}_{type_}_{session}_{clean_name}"
 
+        file.stream.seek(0)
         file_metadata = {
             'name': drive_filename,
             'parents': [DRIVE_FOLDER_ID]
@@ -425,19 +568,24 @@ def get_files():
     try:
         normalized_sem = normalize_semester(raw_semester)
         
-        # We search with year prefix and trashed=false to get files in parent folder
         safe_year = escape_drive_query(year)
         safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-        query = f"'{safe_folder}' in parents and name contains '{safe_year}_' and trashed = false"
+        query = f"'{safe_folder}' in parents and name contains '{safe_year}' and trashed = false"
 
         results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
         all_files = results.get('files', [])
 
-        # Candidate prefixes to match (handles normalized '1st_sem' as well as legacy numeric '1')
         candidate_prefixes = [
             f"{year}_{branch}_{normalized_sem}_{type_}_{session}_",
-            f"{year}_{branch}_{raw_semester}_{type_}_{session}_"
+            f"{year}_{branch}_{raw_semester}_{type_}_{session}_",
         ]
+        if not branch:
+            candidate_prefixes.extend([
+                f"{year}__{normalized_sem}_{type_}_{session}_",
+                f"{year}_{normalized_sem}_{type_}_{session}_",
+                f"{year}__{raw_semester}_{type_}_{session}_",
+                f"{year}_{raw_semester}_{type_}_{session}_",
+            ])
 
         formatted_files = []
         seen_ids = set()
@@ -453,6 +601,14 @@ def get_files():
                 if name.startswith(p):
                     matched_prefix = p
                     break
+
+            if not matched_prefix and not branch:
+                sem_part = f"_{normalized_sem}_{type_}_{session}_"
+                raw_sem_part = f"_{raw_semester}_{type_}_{session}_"
+                if name.startswith(f"{year}_") and (sem_part in name or raw_sem_part in name):
+                    target_part = sem_part if sem_part in name else raw_sem_part
+                    prefix_end = name.find(target_part) + len(target_part)
+                    matched_prefix = name[:prefix_end]
 
             if matched_prefix:
                 original_name = name[len(matched_prefix):]
@@ -488,7 +644,7 @@ def get_faculty_notes():
     try:
         safe_year = escape_drive_query(year)
         safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-        query = f"'{safe_folder}' in parents and name contains '{safe_year}_' and name contains '_notes_' and trashed = false"
+        query = f"'{safe_folder}' in parents and (name contains '{safe_year}' or name contains 'fn_{safe_year}') and trashed = false"
 
         results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
         all_files = results.get('files', [])
@@ -496,25 +652,28 @@ def get_faculty_notes():
         formatted_files = []
         for f in all_files:
             name = f.get('name', '')
-            if not name.startswith(f"{year}_"):
-                continue
+            original_name = None
+            if name.startswith(f"fn_{year}_"):
+                remainder = name[len(f"fn_{year}_"):]
+                if '_' in remainder:
+                    original_name = remainder.split('_', 1)[1]
+                else:
+                    original_name = remainder
+            elif name.startswith(f"{year}_") and '_notes_' in name:
+                remainder = name[len(f"{year}_"):]
+                notes_idx = remainder.find('_notes_')
+                if notes_idx != -1:
+                    after_notes = remainder[notes_idx + len('_notes_'):]
+                    session_sep = after_notes.find('_')
+                    if session_sep != -1:
+                        original_name = after_notes[session_sep + 1:]
 
-            remainder = name[len(f"{year}_"):]
-            notes_idx = remainder.find('_notes_')
-            if notes_idx == -1:
-                continue
-
-            after_notes = remainder[notes_idx + len('_notes_'):]
-            session_sep = after_notes.find('_')
-            if session_sep == -1:
-                continue
-
-            original_name = after_notes[session_sep + 1:]
-            formatted_files.append({
-                'name': original_name,
-                'id': f['id'],
-                'path': f['id']
-            })
+            if original_name:
+                formatted_files.append({
+                    'name': original_name,
+                    'id': f['id'],
+                    'path': f['id']
+                })
 
         return jsonify(formatted_files), 200
     except Exception as e:
@@ -534,32 +693,19 @@ def get_file_response(file_id, action='download', passed_name=None):
         return jsonify({'error': 'Google Drive service not configured'}), 500
 
     try:
-        # Determine filename
         original_name = (passed_name or request.args.get('name') or '').strip()
-        
-        # If no filename provided in URL/query, fetch Drive metadata
+        mime_type = None
+
+        # Fetch Drive metadata if filename is missing or to inspect drive mimeType
         if not original_name:
             file_info = service.files().get(fileId=file_id, fields='name, mimeType').execute()
             raw_drive_name = file_info.get('name', 'document.pdf')
-            # Strip metadata prefix if present (e.g. fn_1st_year_maths_unit1.pdf -> unit1.pdf)
-            if raw_drive_name.startswith('fn_'):
-                parts = raw_drive_name.split('_', 3)
-                original_name = parts[-1] if len(parts) >= 4 else raw_drive_name
-            else:
-                parts = raw_drive_name.split('_', 5)
-                original_name = parts[-1] if len(parts) >= 6 else raw_drive_name
+            original_name = extract_clean_filename(raw_drive_name)
             mime_type = file_info.get('mimeType')
-        else:
-            mime_type = None
 
-        # Resolve MIME type with fast local lookup
+        # Fast local MIME lookup
         if not mime_type or mime_type == 'application/octet-stream':
             mime_type, _ = mimetypes.guess_type(original_name)
-            if not mime_type:
-                if original_name.lower().endswith('.pdf'):
-                    mime_type = 'application/pdf'
-                else:
-                    mime_type = 'application/octet-stream'
 
         # Download file content from Google Drive
         request_file = service.files().get_media(fileId=file_id)
@@ -570,6 +716,29 @@ def get_file_response(file_id, action='download', passed_name=None):
             _, done = downloader.next_chunk()
 
         fh.seek(0)
+
+        # Magic bytes inspection if mime_type is still generic
+        if not mime_type or mime_type == 'application/octet-stream':
+            header = fh.read(16)
+            fh.seek(0)
+            if header.startswith(b'%PDF-'):
+                mime_type = 'application/pdf'
+            elif header.startswith(b'\x89PNG\r\n\x1a\n'):
+                mime_type = 'image/png'
+            elif header.startswith(b'\xff\xd8\xff'):
+                mime_type = 'image/jpeg'
+            elif header.startswith(b'RIFF') and b'WEBP' in header:
+                mime_type = 'image/webp'
+            else:
+                mime_type = 'application/octet-stream'
+
+        # Ensure correct file extension for download
+        if mime_type == 'application/pdf' and not original_name.lower().endswith('.pdf'):
+            original_name = f"{original_name}.pdf"
+        elif mime_type == 'image/png' and not original_name.lower().endswith('.png'):
+            original_name = f"{original_name}.png"
+        elif mime_type == 'image/jpeg' and not (original_name.lower().endswith('.jpg') or original_name.lower().endswith('.jpeg')):
+            original_name = f"{original_name}.jpg"
 
         response = send_file(
             fh,
@@ -625,11 +794,14 @@ def fn_create_section():
     """Create a new section under a specific year (Admin)."""
     try:
         if not is_admin_authorized():
-            return jsonify({'error': 'Unauthorized'}), 401
+            return jsonify({'error': 'Unauthorized! Invalid Admin Passcode.'}), 401
 
         data = request.get_json(silent=True) or {}
-        name = str(data.get('name') or '').strip()
+        raw_name = str(data.get('name') or '').strip()
         year = str(data.get('year') or '').strip()
+
+        # Sanitize section name
+        name = raw_name.replace('/', '-').replace('\\', '-').strip()
 
         if not name:
             return jsonify({'error': 'Section name is required'}), 400
@@ -647,12 +819,12 @@ def fn_create_section():
         return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
-@app.route('/api/fn/sections/<year>/<section_name>', methods=['DELETE'])
+@app.route('/api/fn/sections/<year>/<path:section_name>', methods=['DELETE'])
 def fn_delete_section(year, section_name):
     """Delete a section and its associated Drive files (Admin)."""
     try:
         if not is_admin_authorized():
-            return jsonify({'error': 'Unauthorized'}), 401
+            return jsonify({'error': 'Unauthorized! Invalid Admin Passcode.'}), 401
         if year not in FN_YEARS:
             return jsonify({'error': 'Invalid year'}), 400
 
@@ -666,12 +838,15 @@ def fn_delete_section(year, section_name):
             if service and DRIVE_FOLDER_ID:
                 prefix = f"fn_{year}_{section_name}_"
                 safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-                safe_prefix = escape_drive_query(prefix)
-                query = f"'{safe_folder}' in parents and name contains '{safe_prefix}' and trashed = false"
+                safe_year = escape_drive_query(year)
+                query = f"'{safe_folder}' in parents and name contains 'fn_{safe_year}' and trashed = false"
                 results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
                 for f in results.get('files', []):
                     if f.get('name', '').startswith(prefix):
-                        service.files().delete(fileId=f['id']).execute()
+                        try:
+                            service.files().delete(fileId=f['id']).execute()
+                        except Exception as del_err:
+                            print(f"[FN] Warning deleting file {f.get('id')}: {del_err}")
         except Exception as e:
             print(f"[FN] Error deleting files for section {year}/{section_name}: {e}")
 
@@ -682,7 +857,7 @@ def fn_delete_section(year, section_name):
         return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
-@app.route('/api/fn/files/<year>/<section_name>', methods=['GET'])
+@app.route('/api/fn/files/<year>/<path:section_name>', methods=['GET'])
 def fn_get_files(year, section_name):
     """List files in a faculty notes section (Public)."""
     try:
@@ -699,8 +874,8 @@ def fn_get_files(year, section_name):
 
         prefix = f"fn_{year}_{section_name}_"
         safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-        safe_prefix = escape_drive_query(prefix)
-        query = f"'{safe_folder}' in parents and name contains '{safe_prefix}' and trashed = false"
+        safe_year = escape_drive_query(year)
+        query = f"'{safe_folder}' in parents and name contains 'fn_{safe_year}' and trashed = false"
         
         results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
         files = []
@@ -720,7 +895,7 @@ def fn_upload_file():
     """Upload a file to a faculty notes section (Admin)."""
     try:
         if not is_admin_authorized():
-            return jsonify({'error': 'Unauthorized'}), 401
+            return jsonify({'error': 'Unauthorized! Invalid Admin Passcode.'}), 401
 
         section = request.form.get('section', '').strip()
         year = request.form.get('year', '').strip()
@@ -741,23 +916,32 @@ def fn_upload_file():
             return jsonify({'error': 'No file selected'}), 400
 
         if not is_allowed_file(file.filename) and not is_allowed_file(display_name):
-            return jsonify({'error': 'Invalid file format. Please upload a PDF or image.'}), 400
+            return jsonify({'error': f'Invalid file format. Allowed: {", ".join(sorted(ALLOWED_EXTENSIONS))}'}), 400
 
+        # Preserve file extension from original uploaded filename if display_name lacks one
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
         clean_display_name = sanitize_filename(display_name)
+        if file_ext and not clean_display_name.lower().endswith(f'.{file_ext}'):
+            clean_display_name = f"{clean_display_name}.{file_ext}"
+
         drive_name = f"fn_{year}_{section}_{clean_display_name}"
 
         service = get_drive_service()
         if not service or not DRIVE_FOLDER_ID:
             return jsonify({'error': 'Google Drive not configured'}), 500
 
+        file.stream.seek(0)
         file_metadata = {'name': drive_name, 'parents': [DRIVE_FOLDER_ID]}
         mime = file.content_type or mimetypes.guess_type(clean_display_name)[0] or 'application/octet-stream'
         media = MediaIoBaseUpload(file.stream, mimetype=mime, resumable=True)
         drive_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
 
-        return jsonify({'success': True, 'id': drive_file.get('id')}), 200
+        return jsonify({'success': True, 'id': drive_file.get('id'), 'filename': clean_display_name}), 200
     except Exception as e:
-        return jsonify({'error': f'Server Error: {str(e)}'}), 500
+        error_msg = str(e)
+        if 'GOOGLE_TOKEN_EXPIRED' in error_msg:
+            return jsonify({'error': 'Google Drive token expired. Please re-authenticate.'}), 500
+        return jsonify({'error': f'Server Error: {error_msg}'}), 500
 
 
 @app.route('/api/fn/file/<file_id>', methods=['DELETE'])
@@ -765,7 +949,7 @@ def fn_delete_file(file_id):
     """Delete a faculty notes file by Drive file ID (Admin)."""
     try:
         if not is_admin_authorized():
-            return jsonify({'error': 'Unauthorized'}), 401
+            return jsonify({'error': 'Unauthorized! Invalid Admin Passcode.'}), 401
 
         service = get_drive_service()
         if not service:

@@ -326,8 +326,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modalFileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
-            modalFileMsg.textContent = e.target.files[0].name;
+            const f = e.target.files[0];
+            modalFileMsg.textContent = f.name;
             modalDropArea.style.borderColor = 'var(--accent-secondary)';
+            if (!fileDisplayName.value.trim()) {
+                fileDisplayName.value = f.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+            }
         } else {
             modalFileMsg.textContent = 'Drag & Drop or Click to choose PDF';
             modalDropArea.style.borderColor = 'rgba(255,255,255,0.15)';
@@ -344,8 +348,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             modalFileInput.files = files;
-            modalFileMsg.textContent = files[0].name;
+            const f = files[0];
+            modalFileMsg.textContent = f.name;
             modalDropArea.style.borderColor = 'var(--accent-secondary)';
+            if (!fileDisplayName.value.trim()) {
+                fileDisplayName.value = f.name.replace(/\.[^/.]+$/, '').replace(/_/g, ' ');
+            }
         }
     });
 
@@ -375,7 +383,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'X-Admin-Key': adminKey },
                 body: formData
             });
-            const data = await res.json();
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (_) {
+                data = { error: `Server error (${res.status})` };
+            }
             if (res.ok && data.success) {
                 showStatus(modalStatus, 'Uploaded successfully! 🚀', 'success');
                 uploadFileForm.reset();

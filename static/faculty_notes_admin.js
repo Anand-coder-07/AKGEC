@@ -39,12 +39,38 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalUploadBtn = document.getElementById('modalUploadBtn');
     const modalStatus    = document.getElementById('modalStatus');
 
-    // --- Auth (now uses dedicated /api/fn/verify endpoint) ---
+    function escHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function showStatus(el, msg, type) {
+        if (!el) return;
+        el.textContent = msg;
+        el.className = `status-msg ${type}`;
+        setTimeout(() => {
+            if (el.textContent === msg) {
+                el.textContent = '';
+                el.className = 'status-msg';
+            }
+        }, 4000);
+    }
+
+    // --- Auth Verification ---
     authBtn.addEventListener('click', async () => {
         const key = authKeyInput.value.trim();
-        if (!key) { showStatus(authStatus, 'Enter passcode.', 'error'); return; }
+        if (!key) {
+            showStatus(authStatus, 'Please enter admin passcode.', 'error');
+            return;
+        }
         authBtn.disabled = true;
         authBtn.innerHTML = '<ion-icon name="sync-outline" class="spin"></ion-icon> <span>Verifying...</span>';
+
         try {
             const res = await fetch('/api/fn/verify', {
                 method: 'POST',
@@ -52,6 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (res.status === 401) {
                 showStatus(authStatus, 'Invalid passcode.', 'error');
+                return;
+            }
+            if (!res.ok) {
+                showStatus(authStatus, 'Verification error.', 'error');
                 return;
             }
             adminKey = key;
@@ -67,7 +97,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    authKeyInput.addEventListener('keydown', e => { if (e.key === 'Enter') authBtn.click(); });
+    authKeyInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') authBtn.click();
+    });
 
     // --- Year Tabs ---
     function renderYearTabs() {
@@ -91,16 +123,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Create Section ---
     createSectionBtn.addEventListener('click', async () => {
         const name = newSectionName.value.trim();
-        if (!name) { showStatus(createStatus, 'Enter a section name.', 'error'); return; }
+        if (!name) {
+            showStatus(createStatus, 'Enter a section name.', 'error');
+            return;
+        }
         createSectionBtn.disabled = true;
+
         try {
             const res = await fetch('/api/fn/sections', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-Admin-Key': adminKey },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Admin-Key': adminKey
+                },
                 body: JSON.stringify({ name, year: activeYear })
             });
             const data = await res.json();
-            if (!res.ok) { showStatus(createStatus, data.error || 'Failed.', 'error'); return; }
+            if (!res.ok) {
+                showStatus(createStatus, data.error || 'Failed to create section.', 'error');
+                return;
+            }
             showStatus(createStatus, `Section "${name}" created in ${yearLabels[activeYear]}!`, 'success');
             newSectionName.value = '';
             loadSections();
@@ -111,18 +153,25 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    newSectionName.addEventListener('keydown', e => { if (e.key === 'Enter') createSectionBtn.click(); });
+    newSectionName.addEventListener('keydown', e => {
+        if (e.key === 'Enter') createSectionBtn.click();
+    });
 
     // --- Load Sections ---
     async function loadSections() {
-        sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><ion-icon name="hourglass-outline" class="spin"></ion-icon> Loading...</div>`;
+        sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><ion-icon name="hourglass-outline" class="spin"></ion-icon><p>Loading sections...</p></div>`;
         try {
-            const res = await fetch(`/api/fn/sections?year=${activeYear}`, { headers: { 'X-Admin-Key': adminKey } });
+            const res = await fetch(`/api/fn/sections?year=${encodeURIComponent(activeYear)}`, {
+                headers: { 'X-Admin-Key': adminKey }
+            });
             const data = await res.json();
-            if (!res.ok) { sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Failed to load sections.</div>`; return; }
+            if (!res.ok) {
+                sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${escHtml(data.error || 'Failed to load sections.')}</p></div>`;
+                return;
+            }
             renderSections(data.sections || []);
         } catch (e) {
-            sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;">Connection error.</div>`;
+            sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>Connection error.</p></div>`;
         }
     }
 
@@ -131,6 +180,7 @@ document.addEventListener('DOMContentLoaded', () => {
             sectionsGrid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><ion-icon name="folder-open-outline"></ion-icon><p>No sections in ${yearLabels[activeYear]} yet. Create one above!</p></div>`;
             return;
         }
+
         sectionsGrid.innerHTML = sections.map((s, i) => `
             <div class="section-card ${activeSection === s ? 'active' : ''}" data-section="${escHtml(s)}" style="--stagger:${i}">
                 <button class="s-del" data-del="${escHtml(s)}" title="Delete section"><ion-icon name="trash-outline"></ion-icon></button>
@@ -140,7 +190,6 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `).join('');
 
-        // Click section → open files panel
         sectionsGrid.querySelectorAll('.section-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 if (e.target.closest('.s-del')) return;
@@ -151,7 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Delete section
         sectionsGrid.querySelectorAll('.s-del').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
@@ -169,7 +217,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'X-Admin-Key': adminKey }
             });
             const data = await res.json();
-            if (!res.ok) { alert(data.error || 'Failed to delete.'); return; }
+            if (!res.ok) {
+                alert(data.error || 'Failed to delete section.');
+                return;
+            }
             if (activeSection === section) {
                 activeSection = null;
                 filesPanel.style.display = 'none';
@@ -180,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- Select Section → load its files ---
+    // --- Select Section ---
     function selectSection(section) {
         activeSection = section;
         activeSectionLabel.textContent = `${section} (${yearLabels[activeYear]})`;
@@ -191,16 +242,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadFiles(section) {
-        filesListContainer.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon> Loading files...</div>`;
+        filesListContainer.innerHTML = `<div class="empty-state"><ion-icon name="hourglass-outline" class="spin"></ion-icon><p>Loading files...</p></div>`;
         try {
             const res = await fetch(`/api/fn/files/${encodeURIComponent(activeYear)}/${encodeURIComponent(section)}`, {
                 headers: { 'X-Admin-Key': adminKey }
             });
             const data = await res.json();
-            if (!res.ok) { filesListContainer.innerHTML = `<div class="empty-state">Failed to load files.</div>`; return; }
+            if (!res.ok) {
+                filesListContainer.innerHTML = `<div class="empty-state"><p>${escHtml(data.error || 'Failed to load files.')}</p></div>`;
+                return;
+            }
             renderFiles(data.files || []);
         } catch (e) {
-            filesListContainer.innerHTML = `<div class="empty-state">Connection error.</div>`;
+            filesListContainer.innerHTML = `<div class="empty-state"><p>Connection error.</p></div>`;
         }
     }
 
@@ -209,18 +263,19 @@ document.addEventListener('DOMContentLoaded', () => {
             filesListContainer.innerHTML = `<div class="empty-state"><ion-icon name="document-text-outline"></ion-icon><p>No files yet. Click "Upload PDF" above.</p></div>`;
             return;
         }
+
         filesListContainer.innerHTML = files.map((f, i) => `
             <div class="file-row" style="--stagger:${i}">
                 <ion-icon name="document-text" class="fr-icon"></ion-icon>
                 <span class="fr-name">${escHtml(f.display_name)}</span>
                 <div class="fr-actions">
-                    <a href="/view/${f.id}/${encodeURIComponent(f.display_name)}" target="_blank" class="file-btn btn-view">
+                    <a href="/view/${f.id}/${encodeURIComponent(f.display_name)}" target="_blank" rel="noopener" class="file-btn btn-view">
                         <ion-icon name="eye-outline"></ion-icon> View
                     </a>
                     <a href="/download/${f.id}/${encodeURIComponent(f.display_name)}" class="file-btn btn-download">
                         <ion-icon name="download-outline"></ion-icon> Download
                     </a>
-                    <button class="btn-sm btn-danger del-file-btn" data-id="${f.id}" data-name="${escHtml(f.display_name)}">
+                    <button class="btn-sm btn-danger del-file-btn" data-id="${f.id}" data-name="${escHtml(f.display_name)}" title="Delete file">
                         <ion-icon name="trash-outline"></ion-icon>
                     </button>
                 </div>
@@ -244,7 +299,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: { 'X-Admin-Key': adminKey }
             });
             const data = await res.json();
-            if (!res.ok) { alert(data.error || 'Failed to delete file.'); return; }
+            if (!res.ok) {
+                alert(data.error || 'Failed to delete file.');
+                return;
+            }
             loadFiles(activeSection);
         } catch (e) {
             alert('Connection error.');
@@ -255,13 +313,16 @@ document.addEventListener('DOMContentLoaded', () => {
     openUploadModalBtn.addEventListener('click', () => {
         uploadFileForm.reset();
         modalFileMsg.textContent = 'Drag & Drop or Click to choose PDF';
+        modalDropArea.style.borderColor = 'rgba(255,255,255,0.15)';
         modalStatus.textContent = '';
         modalStatus.className = 'status-msg';
         uploadModal.classList.add('open');
     });
 
     closeModalBtn.addEventListener('click', () => uploadModal.classList.remove('open'));
-    uploadModal.addEventListener('click', (e) => { if (e.target === uploadModal) uploadModal.classList.remove('open'); });
+    uploadModal.addEventListener('click', (e) => {
+        if (e.target === uploadModal) uploadModal.classList.remove('open');
+    });
 
     modalFileInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
@@ -278,11 +339,13 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     ['dragenter', 'dragover'].forEach(ev => modalDropArea.addEventListener(ev, () => modalDropArea.classList.add('dragover')));
     ['dragleave', 'drop'].forEach(ev => modalDropArea.addEventListener(ev, () => modalDropArea.classList.remove('dragover')));
+
     modalDropArea.addEventListener('drop', (e) => {
         const files = e.dataTransfer.files;
         if (files.length > 0) {
             modalFileInput.files = files;
             modalFileMsg.textContent = files[0].name;
+            modalDropArea.style.borderColor = 'var(--accent-secondary)';
         }
     });
 
@@ -291,7 +354,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!activeSection) return;
         const displayName = fileDisplayName.value.trim();
         const file = modalFileInput.files[0];
-        if (!displayName || !file) { showStatus(modalStatus, 'Fill all fields.', 'error'); return; }
+        if (!displayName || !file) {
+            showStatus(modalStatus, 'Please fill all required fields.', 'error');
+            return;
+        }
 
         modalUploadBtn.innerHTML = '<ion-icon name="sync-outline" class="spin"></ion-icon> <span>Uploading...</span>';
         modalUploadBtn.disabled = true;
@@ -304,15 +370,19 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('admin_key', adminKey);
 
         try {
-            const res = await fetch('/api/fn/upload', { method: 'POST', body: formData });
+            const res = await fetch('/api/fn/upload', {
+                method: 'POST',
+                headers: { 'X-Admin-Key': adminKey },
+                body: formData
+            });
             const data = await res.json();
-            if (res.ok) {
+            if (res.ok && data.success) {
                 showStatus(modalStatus, 'Uploaded successfully! 🚀', 'success');
                 uploadFileForm.reset();
                 modalFileMsg.textContent = 'Drag & Drop or Click to choose PDF';
                 modalDropArea.style.borderColor = 'rgba(255,255,255,0.15)';
                 loadFiles(activeSection);
-                setTimeout(() => uploadModal.classList.remove('open'), 1500);
+                setTimeout(() => uploadModal.classList.remove('open'), 1200);
             } else {
                 showStatus(modalStatus, data.error || 'Upload failed.', 'error');
             }
@@ -323,19 +393,4 @@ document.addEventListener('DOMContentLoaded', () => {
             modalUploadBtn.disabled = false;
         }
     });
-
-    // --- Helpers ---
-    function showStatus(el, msg, type) {
-        el.textContent = msg;
-        el.className = `status-msg ${type}`;
-        setTimeout(() => { el.textContent = ''; el.className = 'status-msg'; }, 4000);
-    }
-
-    function escHtml(str) {
-        return String(str)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
 });

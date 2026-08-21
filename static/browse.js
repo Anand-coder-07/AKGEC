@@ -274,6 +274,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getFileIconDetails(fileName) {
+        if (!fileName.includes('.')) {
+            return { icon: 'document-text', color: '#f85149' };
+        }
         const ext = (fileName.split('.').pop() || '').toLowerCase();
         if (ext === 'pdf') {
             return { icon: 'document-text', color: '#f85149' };
@@ -287,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (['ppt', 'pptx'].includes(ext)) {
             return { icon: 'easel', color: '#e8c547' };
         }
-        return { icon: 'document', color: '#d4a017' };
+        return { icon: 'document-text', color: '#f85149' };
     }
 
     async function fetchFacultyFiles(section) {

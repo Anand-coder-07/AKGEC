@@ -534,32 +534,54 @@ def get_file_response(file_id, action='download', passed_name=None):
         return jsonify({'error': 'Google Drive service not configured'}), 500
 
     try:
-        # Determine filename
+        # Determine filename passed from request
         original_name = (passed_name or request.args.get('name') or '').strip()
-        
-        # If no filename provided in URL/query, fetch Drive metadata
-        if not original_name:
-            file_info = service.files().get(fileId=file_id, fields='name, mimeType').execute()
-            raw_drive_name = file_info.get('name', 'document.pdf')
-            # Strip metadata prefix if present (e.g. fn_1st_year_maths_unit1.pdf -> unit1.pdf)
-            if raw_drive_name.startswith('fn_'):
-                parts = raw_drive_name.split('_', 3)
-                original_name = parts[-1] if len(parts) >= 4 else raw_drive_name
-            else:
-                parts = raw_drive_name.split('_', 5)
-                original_name = parts[-1] if len(parts) >= 6 else raw_drive_name
-            mime_type = file_info.get('mimeType')
-        else:
-            mime_type = None
+        mime_type = None
+        file_info = None
 
-        # Resolve MIME type with fast local lookup
+        # If original_name is missing OR has no extension, fetch file metadata from Drive
+        if not original_name or '.' not in original_name:
+            try:
+                file_info = service.files().get(fileId=file_id, fields='name, mimeType').execute()
+            except Exception as e:
+                print(f"[Drive Metadata Warning] file_id={file_id}, error={e}")
+
+        if file_info:
+            drive_mime = file_info.get('mimeType')
+            raw_drive_name = file_info.get('name', '')
+
+            if not original_name:
+                if raw_drive_name.startswith('fn_'):
+                    parts = raw_drive_name.split('_', 3)
+                    original_name = parts[-1] if len(parts) >= 4 else raw_drive_name
+                else:
+                    parts = raw_drive_name.split('_', 5)
+                    original_name = parts[-1] if len(parts) >= 6 else raw_drive_name
+            
+            # Use drive MIME type if available and valid
+            if drive_mime and drive_mime != 'application/octet-stream':
+                mime_type = drive_mime
+
+        # Fallback local lookup if MIME type is still unknown
         if not mime_type or mime_type == 'application/octet-stream':
             mime_type, _ = mimetypes.guess_type(original_name)
-            if not mime_type:
-                if original_name.lower().endswith('.pdf'):
-                    mime_type = 'application/pdf'
-                else:
-                    mime_type = 'application/octet-stream'
+
+        # Fallback check for PDF extension or default to application/pdf for document viewing
+        if not mime_type or mime_type == 'application/octet-stream':
+            if original_name and original_name.lower().endswith('.pdf'):
+                mime_type = 'application/pdf'
+            else:
+                # Default fallback for notes/papers
+                mime_type = 'application/pdf'
+
+        # Ensure original_name has an extension matching mime_type if missing
+        if '.' not in original_name:
+            if mime_type == 'application/pdf':
+                original_name = f"{original_name}.pdf"
+            elif mime_type == 'image/png':
+                original_name = f"{original_name}.png"
+            elif mime_type == 'image/jpeg':
+                original_name = f"{original_name}.jpg"
 
         # Download file content from Google Drive
         request_file = service.files().get_media(fileId=file_id)
@@ -578,6 +600,8 @@ def get_file_response(file_id, action='download', passed_name=None):
             download_name=original_name
         )
         response.headers['Cache-Control'] = 'public, max-age=86400'
+        if action == 'view':
+            response.headers['Content-Disposition'] = f'inline; filename="{original_name}"'
         return response
     except Exception as e:
         print(f"[File Error] file_id={file_id}, action={action}, error={e}")
@@ -744,6 +768,11 @@ def fn_upload_file():
             return jsonify({'error': 'Invalid file format. Please upload a PDF or image.'}), 400
 
         clean_display_name = sanitize_filename(display_name)
+        if '.' in file.filename and '.' not in clean_display_name:
+            file_ext = file.filename.rsplit('.', 1)[1].lower()
+            if file_ext in ALLOWED_EXTENSIONS:
+                clean_display_name = f"{clean_display_name}.{file_ext}"
+
         drive_name = f"fn_{year}_{section}_{clean_display_name}"
 
         service = get_drive_service()

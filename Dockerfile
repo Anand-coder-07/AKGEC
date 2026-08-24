@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY . .
 
-# Expose port (Cloud Run uses PORT env variable)
-EXPOSE 8080
+# Hugging Face Spaces uses port 7860
+EXPOSE 7860
 
-# Run with gunicorn, bind to PORT env variable (Cloud Run sets this)
-CMD exec gunicorn --bind :${PORT:-8080} --workers 1 --threads 8 --timeout 0 app:app
+# Run with gunicorn on port 7860 (HF Spaces default)
+CMD exec gunicorn --bind 0.0.0.0:7860 --workers 1 --threads 8 --timeout 0 app:app

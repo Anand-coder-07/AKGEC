@@ -8,3 +8,4 @@ dummy_paper.pdf
 client_secret.json
 oauth_tokens.json
 fn_sections.json
+setup_oauth.py

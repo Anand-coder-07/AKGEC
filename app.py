@@ -6,12 +6,11 @@ import hmac
 import mimetypes
 import threading
 import urllib.request
-from flask import Flask, request, jsonify, render_template, send_from_directory, send_file
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect
 from werkzeug.utils import secure_filename
-from google.oauth2.credentials import Credentials
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload, MediaIoBaseDownload
+import boto3
+from botocore.exceptions import ClientError
+from botocore.config import Config
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -22,8 +21,12 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # --- CONFIGURATION ---
-DRIVE_FOLDER_ID = os.environ.get('GOOGLE_DRIVE_FOLDER_ID', '')
 ADMIN_KEY = os.environ.get('ADMIN_KEY', 'akgec_admin')
+R2_ACCOUNT_ID = os.environ.get('R2_ACCOUNT_ID')
+R2_ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID')
+R2_SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY')
+R2_BUCKET_NAME = os.environ.get('R2_BUCKET_NAME')
+R2_PUBLIC_URL = os.environ.get('R2_PUBLIC_URL') # Optional custom domain
 
 FN_SECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'fn_sections.json')
 FN_YEARS = ['1st_year', '2nd_year', '3rd_year', '4th_year']
@@ -32,9 +35,8 @@ FN_CONFIG_FILENAME = "config_fn_sections.json"
 ALLOWED_EXTENSIONS = {'pdf', 'png', 'jpg', 'jpeg', 'webp', 'doc', 'docx', 'ppt', 'pptx'}
 
 # --- THREAD LOCKS & CACHES ---
-_drive_lock = threading.Lock()
-_cached_creds = None
-_cached_service = None
+_r2_lock = threading.Lock()
+_cached_r2_client = None
 
 _fn_cache_lock = threading.Lock()
 _fn_cache = {'data': None, 'timestamp': 0}
@@ -90,77 +92,107 @@ def is_admin_authorized():
     return hmac.compare_digest(provided_key.strip(), ADMIN_KEY.strip())
 
 
-# --- GOOGLE DRIVE SERVICE ---
+# --- CLOUDFLARE R2 SERVICE ---
 
-def get_drive_service():
-    """Get an authenticated Google Drive service with thread-safe caching and auto-refresh."""
-    global _cached_creds, _cached_service
+def get_r2_client():
+    """Get an authenticated boto3 client for Cloudflare R2 with thread-safe caching."""
+    global _cached_r2_client
 
-    refresh_token = os.environ.get('GOOGLE_REFRESH_TOKEN')
-    client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    client_secret = os.environ.get('GOOGLE_CLIENT_SECRET')
-
-    if not refresh_token:
+    if not all([R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME]):
         return None
 
-    with _drive_lock:
-        # Check existing cached credentials
-        if _cached_creds and _cached_creds.refresh_token == refresh_token:
-            if _cached_creds.valid:
-                return _cached_service
-            if _cached_creds.expired:
-                try:
-                    _cached_creds.refresh(Request())
-                    return _cached_service
-                except Exception as e:
-                    error_msg = str(e)
-                    print(f"[Token] Refresh failed: {error_msg}")
-                    _cached_creds = None
-                    _cached_service = None
-                    if any(x in error_msg for x in ['invalid_grant', 'expired', 'revoked']):
-                        raise Exception(
-                            'GOOGLE_TOKEN_EXPIRED: Refresh token expired. '
-                            'Re-run setup_oauth.py and update GOOGLE_REFRESH_TOKEN.'
-                        )
-                    raise
+    with _r2_lock:
+        if _cached_r2_client:
+            return _cached_r2_client
 
-        # Build fresh credentials
-        creds = Credentials(
-            token=None,
-            refresh_token=refresh_token,
-            token_uri="https://oauth2.googleapis.com/token",
-            client_id=client_id,
-            client_secret=client_secret
-        )
-
+        endpoint_url = f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+        
         try:
-            creds.refresh(Request())
+            _cached_r2_client = boto3.client(
+                's3',
+                endpoint_url=endpoint_url,
+                aws_access_key_id=R2_ACCESS_KEY_ID,
+                aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+                config=Config(signature_version='s3v4'),
+                region_name='auto'
+            )
+            return _cached_r2_client
         except Exception as e:
-            error_msg = str(e)
-            print(f"[Token] Authentication failed: {error_msg}")
-            if any(x in error_msg for x in ['invalid_grant', 'expired', 'revoked']):
-                raise Exception(
-                    'GOOGLE_TOKEN_EXPIRED: Your refresh token has expired. '
-                    'Re-run setup_oauth.py locally and update your environment variables.'
-                )
-            raise
+            print(f"[R2] Authentication failed: {e}")
+            return None
 
-        _cached_creds = creds
-        _cached_service = build('drive', 'v3', credentials=creds, cache_discovery=False)
-        return _cached_service
+def upload_to_r2(file_stream, object_key, mime_type):
+    """Upload a file to R2."""
+    client = get_r2_client()
+    if not client:
+        raise Exception("R2 client not configured")
+        
+    client.upload_fileobj(
+        file_stream,
+        R2_BUCKET_NAME,
+        object_key,
+        ExtraArgs={'ContentType': mime_type}
+    )
+    return object_key
+
+def generate_presigned_url(object_key, action='download', expiry=3600, filename=None):
+    """Generate a presigned URL or public URL for R2 objects."""
+    # If a custom domain is configured, use it for direct access
+    if R2_PUBLIC_URL:
+        base = R2_PUBLIC_URL.rstrip('/')
+        return f"{base}/{object_key}"
+        
+    client = get_r2_client()
+    if not client:
+        raise Exception("R2 client not configured")
+        
+    params = {'Bucket': R2_BUCKET_NAME, 'Key': object_key}
+    
+    if action == 'download' and filename:
+        params['ResponseContentDisposition'] = f'attachment; filename="{filename}"'
+    elif action == 'view' and filename:
+        params['ResponseContentDisposition'] = f'inline; filename="{filename}"'
+        
+    return client.generate_presigned_url(
+        'get_object',
+        Params=params,
+        ExpiresIn=expiry
+    )
+
+def list_r2_objects(prefix):
+    """List objects in R2 matching a prefix."""
+    client = get_r2_client()
+    if not client:
+        raise Exception("R2 client not configured")
+        
+    objects = []
+    paginator = client.get_paginator('list_objects_v2')
+    
+    try:
+        for page in paginator.paginate(Bucket=R2_BUCKET_NAME, Prefix=prefix):
+            if 'Contents' in page:
+                for obj in page['Contents']:
+                    objects.append({
+                        'Key': obj['Key'],
+                        'LastModified': obj['LastModified'],
+                        'Size': obj['Size']
+                    })
+        return objects
+    except ClientError as e:
+        print(f"[R2] List error: {e}")
+        return []
+
+def delete_r2_object(object_key):
+    """Delete an object from R2."""
+    client = get_r2_client()
+    if not client:
+        raise Exception("R2 client not configured")
+        
+    client.delete_object(Bucket=R2_BUCKET_NAME, Key=object_key)
+    return True
 
 
 # --- FACULTY NOTES SECTIONS STORAGE & CACHING ---
-
-def get_fn_config_file_id(service):
-    """Retrieve the Drive file ID for the faculty notes config file."""
-    if not DRIVE_FOLDER_ID:
-        return None
-    query = f"'{escape_drive_query(DRIVE_FOLDER_ID)}' in parents and name = '{FN_CONFIG_FILENAME}' and trashed = false"
-    results = service.files().list(q=query, fields="files(id)", pageSize=1).execute()
-    files = results.get('files', [])
-    return files[0]['id'] if files else None
-
 
 def invalidate_fn_cache():
     """Clear memory cache for faculty notes sections."""
@@ -170,7 +202,7 @@ def invalidate_fn_cache():
 
 
 def load_fn_sections():
-    """Load faculty notes sections with in-memory caching, Drive sync, and local fallback."""
+    """Load faculty notes sections from local file."""
     now = time.time()
     with _fn_cache_lock:
         if _fn_cache['data'] is not None and (now - _fn_cache['timestamp'] < FN_CACHE_TTL):
@@ -178,43 +210,7 @@ def load_fn_sections():
 
     default = {y: [] for y in FN_YEARS}
 
-    # 1. Try Google Drive
-    try:
-        service = get_drive_service()
-        if service and DRIVE_FOLDER_ID:
-            file_id = get_fn_config_file_id(service)
-            if file_id:
-                request_file = service.files().get_media(fileId=file_id)
-                fh = io.BytesIO()
-                downloader = MediaIoBaseDownload(fh, request_file)
-                done = False
-                while not done:
-                    _, done = downloader.next_chunk()
-                fh.seek(0)
-                data = json.loads(fh.read().decode('utf-8'))
-                stored = data.get('sections', {})
-                result = {y: [] for y in FN_YEARS}
-                if isinstance(stored, dict):
-                    for y in FN_YEARS:
-                        if y in stored and isinstance(stored[y], list):
-                            result[y] = [str(item) for item in stored[y] if item]
-
-                # Update local file sync
-                try:
-                    with open(FN_SECTIONS_FILE, 'w', encoding='utf-8') as f:
-                        json.dump({'sections': result}, f, indent=2)
-                except Exception as ex:
-                    print(f"[FN Sync] Local file write warning: {ex}")
-
-                with _fn_cache_lock:
-                    _fn_cache['data'] = result
-                    _fn_cache['timestamp'] = now
-
-                return {y: list(result[y]) for y in FN_YEARS}
-    except Exception as e:
-        print(f"[FN Sync] Warning loading from Drive: {e}")
-
-    # 2. Fallback to local file
+    # Load from local file
     if os.path.exists(FN_SECTIONS_FILE):
         try:
             with open(FN_SECTIONS_FILE, 'r', encoding='utf-8') as f:
@@ -240,7 +236,7 @@ def load_fn_sections():
 
 
 def save_fn_sections(sections):
-    """Save faculty notes sections to local JSON and Google Drive, updating cache."""
+    """Save faculty notes sections to local JSON."""
     clean_sections = {y: list(sections.get(y, [])) for y in FN_YEARS}
 
     # Update cache immediately
@@ -255,38 +251,20 @@ def save_fn_sections(sections):
     except Exception as e:
         print(f"[FN Sync] Error writing local sections file: {e}")
 
-    # Drive save
-    try:
-        service = get_drive_service()
-        if service and DRIVE_FOLDER_ID:
-            file_id = get_fn_config_file_id(service)
-            raw_bytes = json.dumps({'sections': clean_sections}).encode('utf-8')
-            fh = io.BytesIO(raw_bytes)
-            media = MediaIoBaseUpload(fh, mimetype='application/json', resumable=False)
-
-            if file_id:
-                service.files().update(fileId=file_id, media_body=media).execute()
-            else:
-                file_metadata = {
-                    'name': FN_CONFIG_FILENAME,
-                    'parents': [DRIVE_FOLDER_ID]
-                }
-                service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    except Exception as e:
-        print(f"[FN Sync] Error saving sections to Drive: {e}")
-
 
 # --- KEEP-ALIVE BACKGROUND THREAD ---
+# Supports Render (RENDER_EXTERNAL_URL) and Hugging Face (APP_URL) deployments.
+# Set APP_URL = your full HF Space URL in HF Secrets, e.g. https://username-spacename.hf.space
 
-RENDER_URL = os.environ.get('RENDER_EXTERNAL_URL')
+KEEP_ALIVE_URL = os.environ.get('APP_URL') or os.environ.get('RENDER_EXTERNAL_URL')
 
 def keep_alive():
-    """Background thread that pings /health every 10 minutes to prevent cold boot sleep."""
+    """Background thread that pings /health every 8 minutes to prevent cold boot sleep."""
     while True:
-        time.sleep(600)
-        if RENDER_URL:
+        time.sleep(480)  # 8 minutes — well under HF's inactivity window
+        if KEEP_ALIVE_URL:
             try:
-                url = f"{RENDER_URL.rstrip('/')}/health"
+                url = f"{KEEP_ALIVE_URL.rstrip('/')}/health"
                 req = urllib.request.Request(url, headers={'User-Agent': 'AKGEC-Space-KeepAlive/1.0'})
                 with urllib.request.urlopen(req, timeout=10) as resp:
                     if resp.status == 200:
@@ -294,10 +272,10 @@ def keep_alive():
             except Exception as e:
                 print(f"[Keep-Alive] Ping failed: {e}")
 
-if RENDER_URL:
+if KEEP_ALIVE_URL:
     keep_alive_thread = threading.Thread(target=keep_alive, daemon=True)
     keep_alive_thread.start()
-    print(f"[Keep-Alive] Started background ping for {RENDER_URL}")
+    print(f"[Keep-Alive] Started background ping for {KEEP_ALIVE_URL}")
 
 
 # --- ROUTES ---
@@ -375,33 +353,25 @@ def upload_file():
     if not all([year, semester, type_, session]):
         return jsonify({'error': 'Missing category information (Year, Semester, Type, or Session)'}), 400
 
-    service = get_drive_service()
-    if not service or not DRIVE_FOLDER_ID:
-        return jsonify({'error': 'Google Drive service not configured. Check server environment variables.'}), 500
+    client = get_r2_client()
+    if not client:
+        return jsonify({'error': 'R2 storage not configured. Check server environment variables.'}), 500
 
     try:
         clean_name = sanitize_filename(file.filename)
-        drive_filename = f"{year}_{branch}_{semester}_{type_}_{session}_{clean_name}"
-
-        file_metadata = {
-            'name': drive_filename,
-            'parents': [DRIVE_FOLDER_ID]
-        }
+        object_key = f"{year}_{branch}_{semester}_{type_}_{session}_{clean_name}"
 
         mime = file.content_type or mimetypes.guess_type(clean_name)[0] or 'application/octet-stream'
-        media = MediaIoBaseUpload(file.stream, mimetype=mime, resumable=True)
-        drive_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        upload_to_r2(file.stream, object_key, mime)
 
         return jsonify({
-            'success': 'File successfully uploaded to Google Drive!',
-            'id': drive_file.get('id'),
+            'success': 'File successfully uploaded to Cloudflare R2!',
+            'id': object_key,
             'filename': clean_name
         }), 200
     except Exception as e:
         error_msg = str(e)
         print(f"[Upload Error] {error_msg}")
-        if 'GOOGLE_TOKEN_EXPIRED' in error_msg:
-            return jsonify({'error': 'Google Drive token expired. Please re-authenticate.'}), 500
         return jsonify({'error': f'Upload failed: {error_msg}'}), 500
 
 
@@ -418,58 +388,50 @@ def get_files():
     if not all([year, raw_semester, type_, session]):
         return jsonify({'error': 'Missing required query parameters'}), 400
 
-    service = get_drive_service()
-    if not service or not DRIVE_FOLDER_ID:
-        return jsonify({'error': 'Google Drive service not configured'}), 500
+    client = get_r2_client()
+    if not client:
+        return jsonify({'error': 'R2 storage not configured'}), 500
 
     try:
         normalized_sem = normalize_semester(raw_semester)
         
-        # We search with year prefix and trashed=false to get files in parent folder
-        safe_year = escape_drive_query(year)
-        safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-        query = f"'{safe_folder}' in parents and name contains '{safe_year}_' and trashed = false"
-
-        results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
-        all_files = results.get('files', [])
-
         # Candidate prefixes to match (handles normalized '1st_sem' as well as legacy numeric '1')
         candidate_prefixes = [
             f"{year}_{branch}_{normalized_sem}_{type_}_{session}_",
             f"{year}_{branch}_{raw_semester}_{type_}_{session}_"
         ]
+        
+        # We search with year prefix to reduce list_objects calls
+        prefix_to_search = f"{year}_{branch}_"
+        all_objects = list_r2_objects(prefix_to_search)
 
         formatted_files = []
-        seen_ids = set()
+        seen_keys = set()
 
-        for f in all_files:
-            file_id = f.get('id')
-            if not file_id or file_id in seen_ids:
+        for obj in all_objects:
+            key = obj['Key']
+            if key in seen_keys:
                 continue
 
-            name = f.get('name', '')
             matched_prefix = None
             for p in candidate_prefixes:
-                if name.startswith(p):
+                if key.startswith(p):
                     matched_prefix = p
                     break
 
             if matched_prefix:
-                original_name = name[len(matched_prefix):]
-                seen_ids.add(file_id)
+                original_name = key[len(matched_prefix):]
+                seen_keys.add(key)
                 formatted_files.append({
                     'name': original_name,
-                    'id': file_id,
-                    'path': file_id
+                    'id': key,
+                    'path': key
                 })
 
         return jsonify(formatted_files), 200
     except Exception as e:
         print(f"[ERROR] /api/files failed: {e}")
-        error_msg = str(e)
-        if 'GOOGLE_TOKEN_EXPIRED' in error_msg:
-            return jsonify({'error': 'Google Drive token expired. Please re-authenticate.'}), 500
-        return jsonify({'error': f'Failed to fetch files: {error_msg}'}), 500
+        return jsonify({'error': f'Failed to fetch files: {str(e)}'}), 500
 
 
 # --- FACULTY NOTES PUBLIC LISTING API ---
@@ -481,30 +443,23 @@ def get_faculty_notes():
     if not year or year not in FN_YEARS:
         return jsonify({'error': 'Missing or invalid year parameter'}), 400
 
-    service = get_drive_service()
-    if not service or not DRIVE_FOLDER_ID:
-        return jsonify({'error': 'Google Drive service not configured'}), 500
+    client = get_r2_client()
+    if not client:
+        return jsonify({'error': 'R2 storage not configured'}), 500
 
     try:
-        safe_year = escape_drive_query(year)
-        safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-        query = f"'{safe_folder}' in parents and name contains '{safe_year}_' and name contains '_notes_' and trashed = false"
-
-        results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
-        all_files = results.get('files', [])
+        all_objects = list_r2_objects(f"{year}_")
 
         formatted_files = []
-        for f in all_files:
-            name = f.get('name', '')
-            if not name.startswith(f"{year}_"):
-                continue
-
-            remainder = name[len(f"{year}_"):]
-            notes_idx = remainder.find('_notes_')
+        for obj in all_objects:
+            key = obj['Key']
+            
+            # The object key should have '_notes_' in it
+            notes_idx = key.find('_notes_')
             if notes_idx == -1:
                 continue
 
-            after_notes = remainder[notes_idx + len('_notes_'):]
+            after_notes = key[notes_idx + len('_notes_'):]
             session_sep = after_notes.find('_')
             if session_sep == -1:
                 continue
@@ -512,112 +467,54 @@ def get_faculty_notes():
             original_name = after_notes[session_sep + 1:]
             formatted_files.append({
                 'name': original_name,
-                'id': f['id'],
-                'path': f['id']
+                'id': key,
+                'path': key
             })
 
         return jsonify(formatted_files), 200
     except Exception as e:
         print(f"[ERROR] /api/faculty-notes failed: {e}")
-        error_msg = str(e)
-        if 'GOOGLE_TOKEN_EXPIRED' in error_msg:
-            return jsonify({'error': 'Google Drive token expired. Please re-authenticate.'}), 500
-        return jsonify({'error': f'Failed to fetch faculty notes: {error_msg}'}), 500
+        return jsonify({'error': f'Failed to fetch faculty notes: {str(e)}'}), 500
 
 
 # --- FILE STREAMING / DOWNLOAD API ---
 
-def get_file_response(file_id, action='download', passed_name=None):
-    """Download or view a file from Google Drive efficiently."""
-    service = get_drive_service()
-    if not service:
-        return jsonify({'error': 'Google Drive service not configured'}), 500
-
+def get_file_response(object_key, action='download', passed_name=None):
+    """Redirect to a presigned URL or public URL for the R2 object."""
     try:
-        # Determine filename passed from request
         original_name = (passed_name or request.args.get('name') or '').strip()
-        mime_type = None
-        file_info = None
+        
+        if not original_name:
+            if object_key.startswith('fn_'):
+                parts = object_key.split('_', 3)
+                original_name = parts[-1] if len(parts) >= 4 else object_key
+            else:
+                parts = object_key.split('_', 5)
+                original_name = parts[-1] if len(parts) >= 6 else object_key
 
-        # If original_name is missing OR has no extension, fetch file metadata from Drive
-        if not original_name or '.' not in original_name:
-            try:
-                file_info = service.files().get(fileId=file_id, fields='name, mimeType').execute()
-            except Exception as e:
-                print(f"[Drive Metadata Warning] file_id={file_id}, error={e}")
-
-        if file_info:
-            drive_mime = file_info.get('mimeType')
-            raw_drive_name = file_info.get('name', '')
-
-            if not original_name:
-                if raw_drive_name.startswith('fn_'):
-                    parts = raw_drive_name.split('_', 3)
-                    original_name = parts[-1] if len(parts) >= 4 else raw_drive_name
-                else:
-                    parts = raw_drive_name.split('_', 5)
-                    original_name = parts[-1] if len(parts) >= 6 else raw_drive_name
-            
-            # Use drive MIME type if available and valid
-            if drive_mime and drive_mime != 'application/octet-stream':
-                mime_type = drive_mime
-
-        # Fallback local lookup if MIME type is still unknown
-        if not mime_type or mime_type == 'application/octet-stream':
-            mime_type, _ = mimetypes.guess_type(original_name)
-
-        # Fallback check for PDF extension or default to application/pdf for document viewing
+        # Fallback check for PDF extension
+        mime_type, _ = mimetypes.guess_type(original_name)
         if not mime_type or mime_type == 'application/octet-stream':
             if original_name and original_name.lower().endswith('.pdf'):
-                mime_type = 'application/pdf'
+                pass
             else:
-                # Default fallback for notes/papers
-                mime_type = 'application/pdf'
-
-        # Ensure original_name has an extension matching mime_type if missing
-        if '.' not in original_name:
-            if mime_type == 'application/pdf':
                 original_name = f"{original_name}.pdf"
-            elif mime_type == 'image/png':
-                original_name = f"{original_name}.png"
-            elif mime_type == 'image/jpeg':
-                original_name = f"{original_name}.jpg"
-
-        # Download file content from Google Drive
-        request_file = service.files().get_media(fileId=file_id)
-        fh = io.BytesIO()
-        downloader = MediaIoBaseDownload(fh, request_file)
-        done = False
-        while not done:
-            _, done = downloader.next_chunk()
-
-        fh.seek(0)
-
-        response = send_file(
-            fh,
-            mimetype=mime_type,
-            as_attachment=(action == 'download'),
-            download_name=original_name
-        )
-        response.headers['Cache-Control'] = 'public, max-age=86400'
-        if action == 'view':
-            response.headers['Content-Disposition'] = f'inline; filename="{original_name}"'
-        return response
+                
+        url = generate_presigned_url(object_key, action=action, filename=original_name)
+        return redirect(url, code=302)
     except Exception as e:
-        print(f"[File Error] file_id={file_id}, action={action}, error={e}")
-        return jsonify({'error': f'Failed to retrieve file: {str(e)}'}), 500
+        print(f"[File Error] object_key={object_key}, action={action}, error={e}")
+        return jsonify({'error': f'Failed to generate URL: {str(e)}'}), 500
 
 
-@app.route('/download/<file_id>/<path:filename>')
-@app.route('/download/<file_id>')
-def download_file(file_id, filename=None):
-    return get_file_response(file_id, action='download', passed_name=filename)
+@app.route('/download/<path:file_id>')
+def download_file(file_id):
+    return get_file_response(file_id, action='download')
 
 
-@app.route('/view/<file_id>/<path:filename>')
-@app.route('/view/<file_id>')
-def view_file(file_id, filename=None):
-    return get_file_response(file_id, action='view', passed_name=filename)
+@app.route('/view/<path:file_id>')
+def view_file(file_id):
+    return get_file_response(file_id, action='view')
 
 
 # --- FACULTY NOTES MANAGER API ---
@@ -684,18 +581,12 @@ def fn_delete_section(year, section_name):
         if section_name not in all_sections.get(year, []):
             return jsonify({'error': 'Section not found'}), 404
 
-        # Delete all Drive files belonging to this section
+        # Delete all R2 files belonging to this section
         try:
-            service = get_drive_service()
-            if service and DRIVE_FOLDER_ID:
-                prefix = f"fn_{year}_{section_name}_"
-                safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-                safe_prefix = escape_drive_query(prefix)
-                query = f"'{safe_folder}' in parents and name contains '{safe_prefix}' and trashed = false"
-                results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
-                for f in results.get('files', []):
-                    if f.get('name', '').startswith(prefix):
-                        service.files().delete(fileId=f['id']).execute()
+            prefix = f"fn_{year}_{section_name}_"
+            objects = list_r2_objects(prefix)
+            for obj in objects:
+                delete_r2_object(obj['Key'])
         except Exception as e:
             print(f"[FN] Error deleting files for section {year}/{section_name}: {e}")
 
@@ -717,22 +608,13 @@ def fn_get_files(year, section_name):
         if section_name not in all_sections.get(year, []):
             return jsonify({'error': 'Section not found'}), 404
 
-        service = get_drive_service()
-        if not service or not DRIVE_FOLDER_ID:
-            return jsonify({'error': 'Google Drive not configured'}), 500
-
         prefix = f"fn_{year}_{section_name}_"
-        safe_folder = escape_drive_query(DRIVE_FOLDER_ID)
-        safe_prefix = escape_drive_query(prefix)
-        query = f"'{safe_folder}' in parents and name contains '{safe_prefix}' and trashed = false"
-        
-        results = service.files().list(q=query, fields="files(id, name)", pageSize=1000).execute()
+        objects = list_r2_objects(prefix)
         files = []
-        for f in results.get('files', []):
-            name = f.get('name', '')
-            if name.startswith(prefix):
-                display_name = name[len(prefix):]
-                files.append({'id': f['id'], 'display_name': display_name})
+        for obj in objects:
+            key = obj['Key']
+            display_name = key[len(prefix):]
+            files.append({'id': key, 'display_name': display_name})
 
         return jsonify({'files': files}), 200
     except Exception as e:
@@ -773,34 +655,24 @@ def fn_upload_file():
             if file_ext in ALLOWED_EXTENSIONS:
                 clean_display_name = f"{clean_display_name}.{file_ext}"
 
-        drive_name = f"fn_{year}_{section}_{clean_display_name}"
+        object_key = f"fn_{year}_{section}_{clean_display_name}"
 
-        service = get_drive_service()
-        if not service or not DRIVE_FOLDER_ID:
-            return jsonify({'error': 'Google Drive not configured'}), 500
-
-        file_metadata = {'name': drive_name, 'parents': [DRIVE_FOLDER_ID]}
         mime = file.content_type or mimetypes.guess_type(clean_display_name)[0] or 'application/octet-stream'
-        media = MediaIoBaseUpload(file.stream, mimetype=mime, resumable=True)
-        drive_file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        upload_to_r2(file.stream, object_key, mime)
 
-        return jsonify({'success': True, 'id': drive_file.get('id')}), 200
+        return jsonify({'success': True, 'id': object_key}), 200
     except Exception as e:
         return jsonify({'error': f'Server Error: {str(e)}'}), 500
 
 
 @app.route('/api/fn/file/<file_id>', methods=['DELETE'])
 def fn_delete_file(file_id):
-    """Delete a faculty notes file by Drive file ID (Admin)."""
+    """Delete a faculty notes file by R2 object key (Admin)."""
     try:
         if not is_admin_authorized():
             return jsonify({'error': 'Unauthorized'}), 401
 
-        service = get_drive_service()
-        if not service:
-            return jsonify({'error': 'Google Drive not configured'}), 500
-
-        service.files().delete(fileId=file_id).execute()
+        delete_r2_object(file_id)
         return jsonify({'success': True}), 200
     except Exception as e:
         return jsonify({'error': f'Server Error: {str(e)}'}), 500

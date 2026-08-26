@@ -25,7 +25,7 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 DRIVE_FOLDER_ID = os.environ.get('GOOGLE_DRIVE_FOLDER_ID', '')
 ADMIN_KEY = os.environ.get('ADMIN_KEY', 'akgec_admin')
 
-FN_SECTIONS_FILE = os.path.join(os.path.dirname(__file__), 'fn_sections.json')
+FN_SECTIONS_FILE = '/tmp/fn_sections.json'
 FN_YEARS = ['1st_year', '2nd_year', '3rd_year', '4th_year']
 FN_CONFIG_FILENAME = "config_fn_sections.json"
 

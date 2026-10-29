@@ -267,6 +267,7 @@ body {
 
 .year-card:nth-child(4) {
     --i: 3;
+    grid-column: 2;
 }
 
 .year-card::before {
@@ -871,6 +872,10 @@ select:disabled {
 
     .year-cards-grid {
         grid-template-columns: 1fr;
+    }
+
+    .year-card:nth-child(4) {
+        grid-column: auto;
     }
 
     .topbar {

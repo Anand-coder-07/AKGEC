@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 document.addEventListener('DOMContentLoaded', () => {
     const year = typeof CURRENT_YEAR !== 'undefined' ? CURRENT_YEAR : '';
 
@@ -387,7 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     render();
 });
-=======
+/*
 document.addEventListener('DOMContentLoaded', () => {
     const year = typeof CURRENT_YEAR !== 'undefined' ? CURRENT_YEAR : '';
 
@@ -776,4 +775,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     render();
 });
->>>>>>> a1e277dbc240ad80c3d7380ea16ef3802b26dc3f
+*/

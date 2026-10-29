@@ -55,7 +55,7 @@ You need a Cloudflare account to set up R2 storage.
 | `R2_SECRET_ACCESS_KEY` | R2 API Token Secret | `xyz...` |
 | `R2_BUCKET_NAME` | Name of your R2 bucket | `akgec-files` |
 | `R2_PUBLIC_URL` | *(Optional)* Custom domain | `https://files.akgec.in` |
-| `APP_URL` or `RENDER_EXTERNAL_URL` | Used for keep-alive ping on free tiers | `https://my-app.onrender.com` |
+| `APP_URL` | Public production URL used by SEO metadata and sitemap | `https://akgecspace.me` |
 
 ## Migration from Google Drive
 
@@ -69,9 +69,11 @@ If you have an existing Google Drive setup, you can migrate your files to Cloudf
    ```
 4. Once completed successfully, you can remove the Google Drive credentials from your `.env` and production environment variables.
 
-## Deployment (Render)
+## Deployment (Vercel)
 
-1. Connect your GitHub repository to a Render Web Service.
-2. Build Command: `pip install -r requirements.txt`
-3. Start Command: `gunicorn app:app`
-4. Add all the required Environment Variables from the table above in the Render dashboard.
+1. Import the repository into Vercel. The `vercel.json` file exposes `api/index.py` as the Python function.
+2. Add `ADMIN_KEY`, `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_REFRESH_TOKEN`, `GOOGLE_CLIENT_ID`, and `GOOGLE_CLIENT_SECRET` in the Vercel project environment variables.
+3. Add `APP_URL=https://akgecspace.me` so canonical metadata, `robots.txt`, and `sitemap.xml` use the correct hostname.
+4. Deploy and verify `/health`, `/robots.txt`, `/sitemap.xml`, and each `/browse/<year>` URL.
+
+The application currently uses Google Drive as its runtime storage backend. `migrate_to_r2.py` is a separate migration utility; migrating files does not switch the running application to R2.

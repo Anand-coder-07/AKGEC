@@ -4,4 +4,4 @@ Disallow: /admin
 Disallow: /admin/faculty-notes
 Disallow: /api/
 
-Sitemap: https://akgec-space.onrender.com/sitemap.xml
+Sitemap: https://akgecspace.me/sitemap.xml

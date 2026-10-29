@@ -23,7 +23,7 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 
 # --- CONFIGURATION ---
 DRIVE_FOLDER_ID = os.environ.get('GOOGLE_DRIVE_FOLDER_ID', '')
-ADMIN_KEY = os.environ.get('ADMIN_KEY', 'akgec_admin')
+ADMIN_KEY = os.environ.get('ADMIN_KEY', '')
 
 FN_SECTIONS_FILE = '/tmp/fn_sections.json'
 FN_YEARS = ['1st_year', '2nd_year', '3rd_year', '4th_year']
@@ -86,8 +86,28 @@ def escape_drive_query(s):
 
 def is_admin_authorized():
     """Verify admin key using constant-time comparison against header or form data."""
+    if not ADMIN_KEY:
+        return False
     provided_key = request.headers.get('X-Admin-Key') or request.form.get('admin_key') or ''
     return hmac.compare_digest(provided_key.strip(), ADMIN_KEY.strip())
+
+
+def get_site_url():
+    """Return the configured public URL, or the current request host locally."""
+    configured_url = (
+        os.environ.get('APP_URL')
+        or 'https://akgecspace.me'
+        or os.environ.get('VERCEL_PROJECT_PRODUCTION_URL')
+        or os.environ.get('VERCEL_URL')
+    ).strip().rstrip('/')
+    if configured_url and not configured_url.startswith(('http://', 'https://')):
+        configured_url = f'https://{configured_url}'
+    return configured_url or request.url_root.rstrip('/')
+
+
+@app.context_processor
+def inject_site_url():
+    return {'site_url': get_site_url()}
 
 
 # --- GOOGLE DRIVE SERVICE ---
@@ -315,12 +335,23 @@ def index():
 
 @app.route('/sitemap.xml')
 def sitemap():
-    return send_from_directory('static', 'sitemap.xml', mimetype='application/xml')
+    site_url = get_site_url()
+    urls = ['/', '/browse/1st_year', '/browse/2nd_year', '/browse/3rd_year', '/browse/4th_year']
+    body = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for path in urls:
+        priority = '1.0' if path == '/' else '0.8'
+        body.extend(['  <url>', f'    <loc>{site_url}{path}</loc>', '    <changefreq>weekly</changefreq>', f'    <priority>{priority}</priority>', '  </url>'])
+    body.append('</urlset>')
+    return app.response_class('\n'.join(body), mimetype='application/xml')
 
 
 @app.route('/robots.txt')
 def robots():
-    return send_from_directory('static', 'robots.txt', mimetype='text/plain')
+    return app.response_class(
+        'User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /admin/faculty-notes\nDisallow: /api/\n\n'
+        f'Sitemap: {get_site_url()}/sitemap.xml\n',
+        mimetype='text/plain'
+    )
 
 
 @app.route('/admin')

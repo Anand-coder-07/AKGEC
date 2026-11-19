@@ -890,53 +890,102 @@ select:disabled {
     font-size: 1.1rem;
 }
 
-/* ---- Floating Instagram Button ---- */
-.insta-float {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
-    border-radius: 50%;
+/* ---- Contact Dock ---- */
+.contact-dock {
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: white;
-    font-size: 2.2rem;
-    box-shadow: 0 10px 25px rgba(225, 48, 108, 0.4);
-    z-index: 1000;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    width: min(100%, 340px);
+    height: 60px;
+    margin: 0 ;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.32);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 18px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 15px 35px rgba(0, 0, 0, 0.25);
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.contact-dock:hover,
+.contact-dock:focus-within {
+    border-color: rgba(212, 175, 55, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 15px 35px rgba(0, 0, 0, 0.35);
+}
+
+.contact-dock + .main-footer {
+    margin-top: 0;
+}
+
+.contact-flip {
+    display: flex;
+    gap: 7px;
+    perspective: 700px;
+}
+
+.contact-tile {
+    width: 38px;
+    height: 38px;
+}
+
+.contact-tile-inner {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transition: transform 0.65s cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+
+.contact-dock:hover .contact-tile-inner,
+.contact-dock:focus-within .contact-tile-inner {
+    transform: rotateY(180deg);
+}
+
+.contact-face {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    backface-visibility: hidden;
+}
+
+.contact-front {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.contact-back {
+    background: rgba(255, 255, 255, 0.93);
+    color: #18151a;
+    font-size: 1.35rem;
     text-decoration: none;
-    animation: bounceIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    transform: rotateY(180deg);
+    transition: color 0.25s, box-shadow 0.25s;
 }
 
-.insta-float:hover {
-    transform: scale(1.15) translateY(-5px) rotate(8deg);
-    box-shadow: 0 15px 35px rgba(225, 48, 108, 0.6);
-}
-
-@keyframes bounceIn {
-    0% {
-        transform: scale(0);
-        opacity: 0;
-    }
-    60% {
-        transform: scale(1.1);
-        opacity: 1;
-    }
-    100% {
-        transform: scale(1);
-        opacity: 1;
-    }
+.contact-back:hover,
+.contact-back:focus-visible {
+    color: var(--accent-color);
+    box-shadow: 0 8px 18px rgba(212, 175, 55, 0.3);
+    outline: none;
 }
 
 @media (max-width: 768px) {
-    .insta-float {
-        bottom: 20px;
-        right: 20px;
-        width: 50px;
-        height: 50px;
-        font-size: 1.8rem;
+    .contact-dock {
+        margin: 0 1rem 1rem auto;
+    }
+
+    .contact-flip {
+        gap: 5px;
+    }
+
+    .contact-tile {
+        width: 34px;
+        height: 34px;
     }
 }

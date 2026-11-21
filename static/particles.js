@@ -96,11 +96,11 @@
 
     function initParticles() {
         particles.length = 0;
-        // Moderate particle density: max 120 on desktop, 50 on mobile
+        // Moderate particle density: max 156 on desktop, 65 on mobile
         const isMobile = w < 768;
-        const maxParticles = isMobile ? 50 : 120;
-        const calculated = Math.floor((w * h) / 14000);
-        const count = Math.min(Math.max(calculated, 30), maxParticles);
+        const maxParticles = isMobile ? 65 : 156;
+        const calculated = Math.floor((w * h) / 10770);
+        const count = Math.min(Math.max(calculated, 39), maxParticles);
 
         for (let i = 0; i < count; i++) {
             particles.push(new Particle());
